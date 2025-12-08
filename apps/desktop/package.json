@@ -5,6 +5,7 @@
   "description": "A complete Getting Things Done (GTD) productivity system for desktop",
   "author": {
     "name": "dongdongbh",
+    "email": "csdongdong@gmail.com",
     "url": "https://dongdongbh.tech"
   },
   "repository": {
@@ -70,6 +71,7 @@
   "build": {
     "appId": "tech.dongdongbh.focusgtd",
     "productName": "Focus GTD",
+    "publish": null,
     "directories": {
       "output": "dist"
     },
@@ -84,7 +86,8 @@
         "deb"
       ],
       "category": "Office",
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "maintainer": "dongdongbh <csdongdong@gmail.com>"
     },
     "mac": {
       "target": [
