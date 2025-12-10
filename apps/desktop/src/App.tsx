@@ -10,7 +10,7 @@ import { TutorialView } from './components/views/TutorialView';
 import { SettingsView } from './components/views/SettingsView';
 import { ArchiveView } from './components/views/ArchiveView';
 import { AgendaView } from './components/views/AgendaView';
-import { useTaskStore } from '@focus-gtd/core';
+import { useTaskStore, flushPendingSave } from '@focus-gtd/core';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -20,6 +20,13 @@ function App() {
 
     useEffect(() => {
         fetchData();
+
+        const handleUnload = () => {
+            flushPendingSave().catch(console.error);
+        };
+        window.addEventListener('beforeunload', handleUnload);
+
+        return () => window.removeEventListener('beforeunload', handleUnload);
     }, [fetchData]);
 
     const renderView = () => {

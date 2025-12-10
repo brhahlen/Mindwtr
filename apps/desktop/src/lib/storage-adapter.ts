@@ -10,5 +10,4 @@ export const tauriStorage: StorageAdapter = {
     },
 };
 
-// Export for backward compatibility
-export const electronStorage = tauriStorage;
+

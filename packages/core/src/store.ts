@@ -5,10 +5,17 @@ import { StorageAdapter, noopStorage } from './storage';
 
 let storage: StorageAdapter = noopStorage;
 
+/**
+ * Configure the storage adapter to use for persistence.
+ * Must be called before using the store.
+ */
 export const setStorageAdapter = (adapter: StorageAdapter) => {
     storage = adapter;
 };
 
+/**
+ * Core application state interface.
+ */
 interface TaskStore {
     tasks: Task[];
     projects: Project[];
@@ -17,28 +24,43 @@ interface TaskStore {
     error: string | null;
 
     // Actions
+    /** Load all data from storage */
     fetchData: () => Promise<void>;
+    /** Add a new task */
     addTask: (title: string, initialProps?: Partial<Task>) => Promise<void>;
+    /** Update an existing task */
     updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+    /** Soft-delete a task */
     deleteTask: (id: string) => Promise<void>;
+    /** Move task to a different status */
     moveTask: (id: string, newStatus: TaskStatus) => Promise<void>;
 
     // Project Actions
+    /** Add a new project */
     addProject: (title: string, color: string) => Promise<void>;
+    /** Update a project */
     updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+    /** Delete a project */
     deleteProject: (id: string) => Promise<void>;
+    /** Toggle focus status of a project (max 5) */
     toggleProjectFocus: (id: string) => Promise<void>;
 
     // Settings Actions
+    /** Update application settings */
     updateSettings: (updates: Partial<AppData['settings']>) => Promise<void>;
 }
 
-// Debounce save helper - captures data snapshot immediately to prevent race conditions
 // Debounce save helper - captures data snapshot immediately to prevent stale state saves
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let pendingData: AppData | null = null;
 let pendingOnError: ((msg: string) => void) | null = null;
 
+/**
+ * Save data with a debounce delay.
+ * Captures current state snapshot immediately to avoid race conditions.
+ * @param data Snapshot of data to save
+ * @param onError Callback for save failures
+ */
 const debouncedSave = (data: AppData, onError?: (msg: string) => void) => {
     // Capture snapshot of data immediately to prevent stale state saves
     pendingData = { ...data, tasks: [...data.tasks], projects: [...data.projects] };
