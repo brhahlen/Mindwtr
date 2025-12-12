@@ -40,8 +40,24 @@ function encodeBase64Utf8(value: string): string {
         return bytesToBase64(new encoder().encode(value));
     }
 
-    const bytes = new Uint8Array(value.split('').map((c) => c.charCodeAt(0) & 0xff));
-    return bytesToBase64(bytes);
+    try {
+        const encoded = encodeURIComponent(value);
+        const bytes: number[] = [];
+        for (let i = 0; i < encoded.length; i++) {
+            const ch = encoded[i];
+            if (ch === '%') {
+                const hex = encoded.slice(i + 1, i + 3);
+                bytes.push(Number.parseInt(hex, 16));
+                i += 2;
+            } else {
+                bytes.push(ch.charCodeAt(0));
+            }
+        }
+        return bytesToBase64(new Uint8Array(bytes));
+    } catch {
+        const bytes = new Uint8Array(value.split('').map((c) => c.charCodeAt(0) & 0xff));
+        return bytesToBase64(bytes);
+    }
 }
 
 function buildHeaders(options: WebDavOptions): Record<string, string> {
@@ -90,4 +106,3 @@ export async function webdavPutJson(
         throw new Error(`WebDAV PUT failed (${res.status}): ${text || res.statusText}`);
     }
 }
-

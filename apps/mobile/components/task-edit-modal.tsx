@@ -168,7 +168,16 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode }: T
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return t('common.notSet');
-        return new Date(dateStr).toLocaleDateString();
+        const parsed = new Date(dateStr);
+        if (Number.isNaN(parsed.getTime())) return t('common.notSet');
+        return parsed.toLocaleDateString();
+    };
+
+    const getSafePickerDateValue = (dateStr?: string) => {
+        if (!dateStr) return new Date();
+        const parsed = new Date(dateStr);
+        if (Number.isNaN(parsed.getTime())) return new Date();
+        return parsed;
     };
 
     const timeEstimateOptions: { value: TimeEstimate | ''; label: string }[] = [
@@ -622,16 +631,16 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode }: T
                                             </TouchableOpacity>
                                         </View>
                                     ))}
-                                    <TouchableOpacity
-                                        style={styles.addChecklistBtn}
-                                        onPress={() => {
-                                            const newItem = {
-                                                id: Date.now().toString(),
-                                                title: '',
-                                                isCompleted: false
-                                            };
-                                            setEditedTask(prev => ({
-                                                ...prev,
+	                                    <TouchableOpacity
+	                                        style={styles.addChecklistBtn}
+	                                        onPress={() => {
+	                                            const newItem = {
+	                                                id: generateUUID(),
+	                                                title: '',
+	                                                isCompleted: false
+	                                            };
+	                                            setEditedTask(prev => ({
+	                                                ...prev,
                                                 checklist: [...(prev.checklist || []), newItem]
                                             }));
                                         }}
@@ -698,20 +707,20 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode }: T
                             {/* Add extra padding at bottom for scrolling past keyboard */}
                             <View style={{ height: 100 }} />
 
-	                            {showDatePicker && (
-	                                <DateTimePicker
-	                                    value={new Date(
-	                                        (showDatePicker === 'start'
-	                                            ? editedTask.startTime
-	                                            : showDatePicker === 'due'
-	                                                ? editedTask.dueDate
-	                                                : editedTask.reviewAt) || Date.now()
-	                                    )}
-	                                    mode="date"
-	                                    display="default"
-	                                    onChange={onDateChange}
-	                                />
-	                            )}
+		                            {showDatePicker && (
+		                                <DateTimePicker
+		                                    value={getSafePickerDateValue(
+		                                        showDatePicker === 'start'
+		                                            ? editedTask.startTime
+		                                            : showDatePicker === 'due'
+		                                                ? editedTask.dueDate
+		                                                : editedTask.reviewAt
+		                                    )}
+		                                    mode="date"
+		                                    display="default"
+		                                    onChange={onDateChange}
+		                                />
+		                            )}
 
 		                        </ScrollView>
 	                    </KeyboardAvoidingView>

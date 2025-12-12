@@ -12,6 +12,7 @@ const scheduledDigestByKind = new Map<'morning' | 'evening', string>();
 let digestConfigKey: string | null = null;
 let started = false;
 let responseSubscription: Subscription | null = null;
+let storeSubscription: (() => void) | null = null;
 
 let Notifications: NotificationsApi | null = null;
 
@@ -205,7 +206,8 @@ export async function startMobileNotifications() {
   await rescheduleAll(api);
   await rescheduleDailyDigest(api);
 
-  useTaskStore.subscribe(() => {
+  storeSubscription?.();
+  storeSubscription = useTaskStore.subscribe(() => {
     rescheduleAll(api).catch(console.error);
     rescheduleDailyDigest(api).catch(console.error);
   });
@@ -222,6 +224,8 @@ export async function startMobileNotifications() {
 export async function stopMobileNotifications() {
   responseSubscription?.remove();
   responseSubscription = null;
+  storeSubscription?.();
+  storeSubscription = null;
 
   if (Notifications) {
     for (const entry of scheduledByTask.values()) {

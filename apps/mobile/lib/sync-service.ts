@@ -28,7 +28,7 @@ export async function performMobileSync(syncPathOverride?: string): Promise<{ su
       }
       incomingData = await readSyncFile(syncPath);
       if (!incomingData) {
-        return { success: false, error: 'Sync file not found' };
+        incomingData = { tasks: [], projects: [], settings: {} };
       }
     }
 

@@ -221,15 +221,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const oldTask = get()._allTasks.find((t) => t.id === id);
 
         if (!oldTask) {
-            const newAllTasks = get()._allTasks.map((task) =>
-                task.id === id ? { ...task, ...updates, updatedAt: now } : task
-            );
-            const newVisibleTasks = newAllTasks.filter((t) => !t.deletedAt);
-            set({ tasks: newVisibleTasks, _allTasks: newAllTasks });
-            debouncedSave(
-                { tasks: newAllTasks, projects: get()._allProjects, settings: get().settings },
-                (msg) => set({ error: msg })
-            );
             return;
         }
 
