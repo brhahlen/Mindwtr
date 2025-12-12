@@ -14,6 +14,7 @@ import { useTaskStore, flushPendingSave } from '@mindwtr/core';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useLanguage } from './contexts/language-context';
+import { KeybindingProvider } from './contexts/keybinding-context';
 
 function App() {
     const [currentView, setCurrentView] = useState('inbox');
@@ -68,10 +69,12 @@ function App() {
 
     return (
         <ErrorBoundary>
-            <Layout currentView={currentView} onViewChange={setCurrentView}>
-                {renderView()}
-                <GlobalSearch onNavigate={(view, _id) => setCurrentView(view)} />
-            </Layout>
+            <KeybindingProvider currentView={currentView} onNavigate={setCurrentView}>
+                <Layout currentView={currentView} onViewChange={setCurrentView}>
+                    {renderView()}
+                    <GlobalSearch onNavigate={(view, _id) => setCurrentView(view)} />
+                </Layout>
+            </KeybindingProvider>
         </ErrorBoundary>
     );
 }

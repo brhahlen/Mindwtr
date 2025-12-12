@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Moon, Sun, Monitor, Globe, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { Moon, Sun, Monitor, Globe, Check, ExternalLink, RefreshCw, Keyboard } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLanguage, Language } from '../../contexts/language-context';
+import { useKeybindings } from '../../contexts/keybinding-context';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getVersion } from '@tauri-apps/api/app';
 import { SyncService } from '../../lib/sync-service';
@@ -19,6 +20,7 @@ const LANGUAGES: { id: Language; label: string; native: string }[] = [
 export function SettingsView() {
     const [themeMode, setThemeMode] = useState<ThemeMode>('system');
     const { language, setLanguage } = useLanguage();
+    const { style: keybindingStyle, setStyle: setKeybindingStyle, openHelp } = useKeybindings();
     const [saved, setSaved] = useState(false);
     const [appVersion, setAppVersion] = useState('0.1.0');
 
@@ -148,6 +150,11 @@ export function SettingsView() {
             lightTheme: 'Light theme',
             darkTheme: 'Dark theme',
             saved: 'Settings saved',
+            keybindings: 'Keyboard Shortcuts',
+            keybindingsDesc: 'Choose your preferred desktop keybinding style.',
+            keybindingVim: 'Vim',
+            keybindingEmacs: 'Emacs',
+            viewShortcuts: 'View shortcuts',
             // Data section
             data: 'Data Storage',
             currentLocation: 'Current Location',
@@ -189,6 +196,11 @@ export function SettingsView() {
             lightTheme: '浅色主题',
             darkTheme: '深色主题',
             saved: '设置已保存',
+            keybindings: '快捷键',
+            keybindingsDesc: '选择桌面端偏好的快捷键风格。',
+            keybindingVim: 'Vim',
+            keybindingEmacs: 'Emacs',
+            viewShortcuts: '查看快捷键',
             // Data section
             data: '数据存储',
             currentLocation: '当前位置',
@@ -344,6 +356,54 @@ export function SettingsView() {
                                 )}
                             </button>
                         ))}
+                    </div>
+                </section>
+
+                <div className="border-t border-border"></div>
+
+                {/* Keybindings Section */}
+                <section className="space-y-4">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                        <Keyboard className="w-5 h-5" />
+                        {t.keybindings}
+                    </h2>
+
+                    <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            {t.keybindingsDesc}
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setKeybindingStyle('vim')}
+                                className={cn(
+                                    "px-4 py-2 rounded-md text-sm font-medium transition-colors border",
+                                    keybindingStyle === 'vim'
+                                        ? "bg-primary/10 text-primary border-primary ring-1 ring-primary"
+                                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                                )}
+                            >
+                                {t.keybindingVim}
+                            </button>
+                            <button
+                                onClick={() => setKeybindingStyle('emacs')}
+                                className={cn(
+                                    "px-4 py-2 rounded-md text-sm font-medium transition-colors border",
+                                    keybindingStyle === 'emacs'
+                                        ? "bg-primary/10 text-primary border-primary ring-1 ring-primary"
+                                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                                )}
+                            >
+                                {t.keybindingEmacs}
+                            </button>
+                        </div>
+                        <div className="flex justify-end">
+                            <button
+                                onClick={openHelp}
+                                className="text-sm text-primary hover:underline"
+                            >
+                                {t.viewShortcuts}
+                            </button>
+                        </div>
                     </div>
                 </section>
 

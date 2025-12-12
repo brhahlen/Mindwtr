@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Plus, Play, X, Trash2, Moon, User, CheckCircle } from 'lucide-react';
 import { useTaskStore, TaskStatus, Task, PRESET_CONTEXTS, sortTasks, Project } from '@mindwtr/core';
 import { TaskItem } from '../TaskItem';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../contexts/language-context';
+import { useKeybindings } from '../../contexts/keybinding-context';
 
 
 interface ListViewProps {
@@ -16,9 +17,12 @@ type ProcessingStep = 'actionable' | 'twomin' | 'decide' | 'context' | 'project'
 export function ListView({ title, statusFilter }: ListViewProps) {
     const { tasks, projects, addTask, updateTask, deleteTask, moveTask } = useTaskStore();
     const { t } = useLanguage();
+    const { registerTaskListScope } = useKeybindings();
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [selectedContext, setSelectedContext] = useState<string | null>(null);
     const [customContext, setCustomContext] = useState('');
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const addInputRef = useRef<HTMLInputElement>(null);
 
     // Inbox processing state
     const [isProcessing, setIsProcessing] = useState(false);
@@ -88,6 +92,101 @@ export function ListView({ title, statusFilter }: ListViewProps) {
 
         return sortTasks(filtered);
     }, [tasks, projects, statusFilter, selectedContext, sequentialProjectFirstTasks, projectMap]);
+
+    useEffect(() => {
+        setSelectedIndex(0);
+    }, [statusFilter, selectedContext]);
+
+    useEffect(() => {
+        if (filteredTasks.length === 0) {
+            setSelectedIndex(0);
+            return;
+        }
+        if (selectedIndex >= filteredTasks.length) {
+            setSelectedIndex(filteredTasks.length - 1);
+        }
+    }, [filteredTasks.length, selectedIndex]);
+
+    useEffect(() => {
+        const task = filteredTasks[selectedIndex];
+        if (!task) return;
+        const el = document.querySelector(`[data-task-id="${task.id}"]`) as HTMLElement | null;
+        if (el && typeof (el as any).scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [filteredTasks, selectedIndex]);
+
+    const selectNext = useCallback(() => {
+        if (filteredTasks.length === 0) return;
+        setSelectedIndex((i) => Math.min(i + 1, filteredTasks.length - 1));
+    }, [filteredTasks.length]);
+
+    const selectPrev = useCallback(() => {
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+    }, []);
+
+    const selectFirst = useCallback(() => {
+        setSelectedIndex(0);
+    }, []);
+
+    const selectLast = useCallback(() => {
+        if (filteredTasks.length > 0) {
+            setSelectedIndex(filteredTasks.length - 1);
+        }
+    }, [filteredTasks.length]);
+
+    const editSelected = useCallback(() => {
+        const task = filteredTasks[selectedIndex];
+        if (!task) return;
+        const editTrigger = document.querySelector(
+            `[data-task-id="${task.id}"] [data-task-edit-trigger]`
+        ) as HTMLElement | null;
+        editTrigger?.focus();
+        editTrigger?.click();
+    }, [filteredTasks, selectedIndex]);
+
+    const toggleDoneSelected = useCallback(() => {
+        const task = filteredTasks[selectedIndex];
+        if (!task) return;
+        moveTask(task.id, task.status === 'done' ? 'inbox' : 'done');
+    }, [filteredTasks, selectedIndex, moveTask]);
+
+    const deleteSelected = useCallback(() => {
+        const task = filteredTasks[selectedIndex];
+        if (!task) return;
+        deleteTask(task.id);
+    }, [filteredTasks, selectedIndex, deleteTask]);
+
+    useEffect(() => {
+        if (isProcessing) {
+            registerTaskListScope(null);
+            return;
+        }
+
+        registerTaskListScope({
+            kind: 'taskList',
+            selectNext,
+            selectPrev,
+            selectFirst,
+            selectLast,
+            editSelected,
+            toggleDoneSelected,
+            deleteSelected,
+            focusAddInput: () => addInputRef.current?.focus(),
+        });
+
+        return () => registerTaskListScope(null);
+    }, [
+        registerTaskListScope,
+        isProcessing,
+        selectNext,
+        selectPrev,
+        selectFirst,
+        selectLast,
+        editSelected,
+        toggleDoneSelected,
+        deleteSelected,
+    ]);
 
     const contextCounts = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -529,6 +628,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
             {['inbox', 'next', 'todo'].includes(statusFilter) && (
 	                <form onSubmit={handleAddTask} className="relative">
 	                    <input
+                        ref={addInputRef}
 	                        type="text"
 	                        placeholder={`${t('nav.addTask')}...`}
 	                        value={newTaskTitle}
@@ -555,8 +655,14 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                         </p>
                     </div>
                 ) : (
-                    filteredTasks.map(task => (
-                        <TaskItem key={task.id} task={task} project={task.projectId ? projectMap[task.projectId] : undefined} />
+                    filteredTasks.map((task, index) => (
+                        <TaskItem
+                            key={task.id}
+                            task={task}
+                            project={task.projectId ? projectMap[task.projectId] : undefined}
+                            isSelected={index === selectedIndex}
+                            onSelect={() => setSelectedIndex(index)}
+                        />
                     ))
                 )}
             </div>

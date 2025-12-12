@@ -17,9 +17,11 @@ function toDateTimeLocalValue(dateStr: string | undefined): string {
 interface TaskItemProps {
     task: Task;
     project?: Project;
+    isSelected?: boolean;
+    onSelect?: () => void;
 }
 
-export const TaskItem = memo(function TaskItem({ task, project: propProject }: TaskItemProps) {
+export const TaskItem = memo(function TaskItem({ task, project: propProject, isSelected, onSelect }: TaskItemProps) {
     const { updateTask, deleteTask, moveTask, projects, tasks } = useTaskStore();
     const { t, language } = useLanguage();
     const [isEditing, setIsEditing] = useState(false);
@@ -76,7 +78,12 @@ export const TaskItem = memo(function TaskItem({ task, project: propProject }: T
 
     return (
         <div
-            className="group bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-2 border-l-4"
+            data-task-id={task.id}
+            onClickCapture={() => onSelect?.()}
+            className={cn(
+                "group bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-2 border-l-4",
+                isSelected && "ring-2 ring-primary/40"
+            )}
             style={{ borderLeftColor: getStatusColor(task.status).border }}
         >
             <div className="flex items-start gap-3">
@@ -419,6 +426,7 @@ export const TaskItem = memo(function TaskItem({ task, project: propProject }: T
                             role="button"
                             tabIndex={0}
                             aria-label={`Edit task: ${task.title}, ${task.status}. Press Enter to edit.`}
+                            data-task-edit-trigger
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();

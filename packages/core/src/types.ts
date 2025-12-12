@@ -52,5 +52,6 @@ export interface AppData {
         language?: 'en' | 'zh' | 'system';
         weekStart?: 'monday' | 'sunday';
         dateFormat?: string;
+        keybindingStyle?: 'vim' | 'emacs';
     };
 }
