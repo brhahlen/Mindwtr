@@ -8,11 +8,11 @@ A complete Getting Things Done (GTD) productivity system for desktop and mobile.
 
 *New to GTD? Read [GTD in 15 minutes](https://hamberg.no/gtd) for a quick introduction.*
 
-[![CI](https://github.com/dongdongbh/Focus-GTD/actions/workflows/ci.yml/badge.svg)](https://github.com/dongdongbh/Focus-GTD/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/dongdongbh/Focus-GTD?style=social)](https://github.com/dongdongbh/Focus-GTD/stargazers)
+[![CI](https://github.com/dongdongbh/Mindwtr/actions/workflows/ci.yml/badge.svg)](https://github.com/dongdongbh/Mindwtr/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/dongdongbh/Focus-GTD?style=social)](https://github.com/dongdongbh/Mindwtr/stargazers)
 [![GitHub license](https://img.shields.io/github/license/dongdongbh/Focus-GTD)](LICENSE)
-[![GitHub last commit](https://img.shields.io/github/last-commit/dongdongbh/Focus-GTD)](https://github.com/dongdongbh/Focus-GTD/commits/main)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dongdongbh/Focus-GTD/pulls)
+[![GitHub last commit](https://img.shields.io/github/last-commit/dongdongbh/Focus-GTD)](https://github.com/dongdongbh/Mindwtr/commits/main)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dongdongbh/Mindwtr/pulls)
 [![Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/dongdongbh)
 
 
@@ -64,28 +64,34 @@ paru -S mindwtr-bin
 📦 [AUR Package](https://aur.archlinux.org/packages/mindwtr-bin)
 
 **Debian/Ubuntu:**
-Download the `.deb` from [GitHub Releases](https://github.com/dongdongbh/Focus-GTD/releases) and install:
+Download the `.deb` from [GitHub Releases](https://github.com/dongdongbh/Mindwtr/releases) and install:
 ```bash
 sudo dpkg -i mindwtr_*.deb
 ```
 
 **AppImage (Universal):**
-Download the `.AppImage` from [GitHub Releases](https://github.com/dongdongbh/Focus-GTD/releases):
+Download the `.AppImage` from [GitHub Releases](https://github.com/dongdongbh/Mindwtr/releases):
 ```bash
 chmod +x Mindwtr_*.AppImage
 ./Mindwtr_*.AppImage
 ```
 
 ### Desktop (Windows)
-Download the installer (`.msi` or `.exe`) from [GitHub Releases](https://github.com/dongdongbh/Focus-GTD/releases) and run it.
+Download the installer (`.msi` or `.exe`) from [GitHub Releases](https://github.com/dongdongbh/Mindwtr/releases) and run it.
 
 ### Desktop (macOS)
-Download the disk image (`.dmg`) from [GitHub Releases](https://github.com/dongdongbh/Focus-GTD/releases), open it, and drag the application to your Applications folder.
+Download the disk image (`.dmg`) from [GitHub Releases](https://github.com/dongdongbh/Mindwtr/releases), open it, and drag the application to your Applications folder.
+
+> **Note:** If macOS says the app is "damaged" or from an "unidentified developer", run:
+> ```bash
+> xattr -cr /Applications/Mindwtr.app
+> ```
+> Then open the app normally. This is required because the app is not notarized with Apple.
 
 ### Mobile
 
 **Android:**
-Download the APK from [GitHub Releases](https://github.com/dongdongbh/Focus-GTD/releases).
+Download the APK from [GitHub Releases](https://github.com/dongdongbh/Mindwtr/releases).
 
 **iOS:**
 iOS builds require an Apple Developer account ($99/year). Currently available as simulator builds only.
