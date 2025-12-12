@@ -17,7 +17,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useLanguage } from './contexts/language-context';
 import { KeybindingProvider } from './contexts/keybinding-context';
 import { QuickAddModal } from './components/QuickAddModal';
-import { startDesktopNotifications } from './lib/notification-service';
+import { startDesktopNotifications, stopDesktopNotifications } from './lib/notification-service';
 import { SyncService } from './lib/sync-service';
 
 function App() {
@@ -90,6 +90,7 @@ function App() {
         return () => {
             window.removeEventListener('beforeunload', handleUnload);
             window.removeEventListener('focus', focusListener);
+            stopDesktopNotifications();
         };
     }, [fetchData]);
 

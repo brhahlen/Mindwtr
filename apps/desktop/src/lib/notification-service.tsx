@@ -4,6 +4,7 @@ import { useTaskStore } from '@mindwtr/core';
 const notifiedAtByTask = new Map<string, string>();
 const digestSentOnByKind = new Map<'morning' | 'evening', string>();
 let intervalId: number | null = null;
+let storeSubscription: (() => void) | null = null;
 
 type TauriNotificationApi = {
     sendNotification: (payload: { title: string; body?: string }) => void;
@@ -166,5 +167,19 @@ export async function startDesktopNotifications() {
     checkDueAndNotify();
 
     // Re-check on data changes.
-    useTaskStore.subscribe(() => checkDueAndNotify());
+    storeSubscription?.();
+    storeSubscription = useTaskStore.subscribe(() => checkDueAndNotify());
+}
+
+export function stopDesktopNotifications() {
+    if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+    }
+
+    storeSubscription?.();
+    storeSubscription = null;
+
+    notifiedAtByTask.clear();
+    digestSentOnByKind.clear();
 }
