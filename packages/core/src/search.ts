@@ -169,7 +169,7 @@ function matchDateField(dateStr: string | undefined, comparator: SearchComparato
     return compareDates(date, effectiveComparator, target);
 }
 
-export function matchesTask(term: SearchTerm, task: Task, projects: Project[], now: Date): boolean {
+export function matchesTask(term: SearchTerm, task: Task, projectById: Map<string, Project>, now: Date): boolean {
     if (task.deletedAt) return false;
 
     const field = term.field;
@@ -191,7 +191,7 @@ export function matchesTask(term: SearchTerm, task: Task, projects: Project[], n
     } else if (field === 'project') {
         if (!task.projectId) result = false;
         else {
-            const project = projects.find((p) => p.id === task.projectId);
+            const project = projectById.get(task.projectId);
             result = task.projectId === value || (project ? matchesText(project.title, value) : false);
         }
     } else if (DATE_FIELDS.has(field)) {
@@ -234,10 +234,11 @@ export function filterTasksBySearch(tasks: Task[], projects: Project[], query: s
     if (ast.clauses.length === 0) {
         return tasks.filter((task) => !task.deletedAt);
     }
+    const projectById = new Map(projects.map((project) => [project.id, project]));
 
     return tasks.filter((task) => {
         if (task.deletedAt) return false;
-        return ast.clauses.some((clause) => clause.terms.every((term) => matchesTask(term, task, projects, now)));
+        return ast.clauses.some((clause) => clause.terms.every((term) => matchesTask(term, task, projectById, now)));
     });
 }
 
