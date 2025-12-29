@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useTaskStore } from '@mindwtr/core';
+import { useEffect, useRef } from 'react';
 import type { TaskStatus } from '@mindwtr/core';
 import { useTheme } from '../../contexts/theme-context';
 import { useLanguage } from '../../contexts/language-context';
@@ -10,7 +11,7 @@ import { SwipeableTaskItem } from '../swipeable-task-item';
 
 
 export function WaitingView() {
-  const { tasks, updateTask, deleteTask } = useTaskStore();
+  const { tasks, updateTask, deleteTask, highlightTaskId, setHighlightTask } = useTaskStore();
   const { isDark } = useTheme();
   const { t } = useLanguage();
 
@@ -30,6 +31,22 @@ export function WaitingView() {
   const handleStatusChange = (id: string, status: TaskStatus) => {
     updateTask(id, { status });
   };
+
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!highlightTaskId) return;
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightTask(null);
+    }, 3500);
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, [highlightTaskId, setHighlightTask]);
 
   return (
     <View style={[styles.container, { backgroundColor: tc.bg }]}>
@@ -57,6 +74,7 @@ export function WaitingView() {
               onPress={() => { }} // No detail view for now, or maybe expand?
               onStatusChange={(status) => handleStatusChange(task.id, status)}
               onDelete={() => deleteTask(task.id)}
+              isHighlighted={task.id === highlightTaskId}
             />
           ))
         ) : (

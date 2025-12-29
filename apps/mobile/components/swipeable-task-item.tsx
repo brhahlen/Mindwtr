@@ -20,6 +20,7 @@ export interface SwipeableTaskItemProps {
     selectionMode?: boolean;
     isMultiSelected?: boolean;
     onToggleSelect?: () => void;
+    isHighlighted?: boolean;
 }
 
 /**
@@ -41,7 +42,8 @@ export function SwipeableTaskItem({
     hideContexts = false,
     selectionMode = false,
     isMultiSelected = false,
-    onToggleSelect
+    onToggleSelect,
+    isHighlighted = false
 }: SwipeableTaskItemProps) {
     const swipeableRef = useRef<Swipeable>(null);
     const ignorePressUntil = useRef<number>(0);
@@ -180,6 +182,7 @@ export function SwipeableTaskItem({
                     style={[
                         styles.taskItem,
                         { backgroundColor: tc.cardBg },
+                        isHighlighted && !selectionMode && { borderWidth: 2, borderColor: tc.tint },
                         selectionMode && { borderWidth: 2, borderColor: isMultiSelected ? tc.tint : tc.border }
                     ]}
                     onPress={handlePress}

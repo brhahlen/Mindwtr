@@ -10,7 +10,7 @@ import { Search, X, Folder, CheckCircle, ChevronRight } from 'lucide-react-nativ
 const PRIMARY_TINT = '#3B82F6';
 
 export default function SearchScreen() {
-    const { _allTasks, projects, settings, updateSettings } = useTaskStore();
+    const { _allTasks, projects, settings, updateSettings, setHighlightTask } = useTaskStore();
     const { isDark } = useTheme();
     const { t } = useLanguage();
     const router = useRouter();
@@ -81,6 +81,7 @@ export default function SearchScreen() {
             router.push('/projects');
         } else {
             const task = result.item as Task;
+            setHighlightTask(task.id);
             if (task.projectId) {
                 router.push('/projects');
             } else {

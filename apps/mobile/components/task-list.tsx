@@ -45,7 +45,7 @@ export function TaskList({
 }: TaskListProps) {
   const { isDark } = useTheme();
   const { t } = useLanguage();
-  const { tasks, projects, addTask, updateTask, deleteTask, fetchData, batchMoveTasks, batchDeleteTasks, batchUpdateTasks, settings, updateSettings } = useTaskStore();
+  const { tasks, projects, addTask, updateTask, deleteTask, fetchData, batchMoveTasks, batchDeleteTasks, batchUpdateTasks, settings, updateSettings, highlightTaskId, setHighlightTask } = useTaskStore();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [aiKey, setAiKey] = useState('');
   const [copilotSuggestion, setCopilotSuggestion] = useState<{ context?: string; timeEstimate?: Task['timeEstimate']; tags?: string[] } | null>(null);
@@ -60,6 +60,7 @@ export function TaskList({
   const [tagModalVisible, setTagModalVisible] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [sortModalVisible, setSortModalVisible] = useState(false);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dynamic colors based on theme
   const themeColors = useThemeColors();
@@ -138,6 +139,21 @@ export function TaskList({
       clearTimeout(handle);
     };
   }, [aiEnabled, aiKey, aiProvider, contextOptions, enableCopilot, newTaskTitle, settings, statusFilter, tagOptions]);
+
+  useEffect(() => {
+    if (!highlightTaskId) return;
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightTask(null);
+    }, 3500);
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, [highlightTaskId, setHighlightTask]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -245,6 +261,7 @@ export function TaskList({
       onToggleSelect={enableBulkActions ? () => toggleMultiSelect(item.id) : undefined}
       onStatusChange={(status) => updateTask(item.id, { status: status as TaskStatus })}
       onDelete={() => deleteTask(item.id)}
+      isHighlighted={item.id === highlightTaskId}
     />
   );
 

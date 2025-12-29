@@ -66,6 +66,9 @@ interface TaskStore {
     error: string | null;
     /** Updated whenever tasks/projects change (not settings) */
     lastDataChangeAt: number;
+    /** Ephemeral highlight task id for UI navigation */
+    highlightTaskId: string | null;
+    highlightTaskAt: number | null;
 
     // Internal: full data including tombstones (not exposed to UI)
     _allTasks: Task[];
@@ -106,6 +109,8 @@ interface TaskStore {
     // Settings Actions
     /** Update application settings */
     updateSettings: (updates: Partial<AppData['settings']>) => Promise<void>;
+    /** Highlight a task in UI lists (non-persistent) */
+    setHighlightTask: (id: string | null) => void;
 }
 
 // Save queue helper - coalesces writes while ensuring the latest snapshot is persisted quickly.
@@ -156,6 +161,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     isLoading: false,
     error: null,
     lastDataChangeAt: 0,
+    highlightTaskId: null,
+    highlightTaskAt: null,
     // Internal: full data including tombstones
     _allTasks: [],
     _allProjects: [],
@@ -659,5 +666,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             { tasks: get()._allTasks, projects: get()._allProjects, settings: newSettings },
             (msg) => set({ error: msg })
         );
+    },
+    setHighlightTask: (id: string | null) => {
+        set({ highlightTaskId: id, highlightTaskAt: id ? Date.now() : null });
     },
 }));

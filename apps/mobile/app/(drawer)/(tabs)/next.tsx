@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useTaskStore, PRESET_CONTEXTS, sortTasksBy, matchesHierarchicalToken, type Task, type Project, type TaskSortBy, type TaskStatus } from '@mindwtr/core';
@@ -13,12 +13,13 @@ import { SwipeableTaskItem } from '@/components/swipeable-task-item';
 
 export default function NextActionsScreen() {
   const router = useRouter();
-  const { tasks, projects, updateTask, deleteTask, settings } = useTaskStore();
+  const { tasks, projects, updateTask, deleteTask, settings, highlightTaskId, setHighlightTask } = useTaskStore();
   const { isDark } = useTheme();
   const { t } = useLanguage();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const tc = useThemeColors();
   const sortBy = (settings?.taskSortBy ?? 'default') as TaskSortBy;
@@ -134,8 +135,24 @@ export default function NextActionsScreen() {
       onPress={() => onEdit(item)}
       onStatusChange={(status) => updateTask(item.id, { status: status as TaskStatus })}
       onDelete={() => deleteTask(item.id)}
+      isHighlighted={item.id === highlightTaskId}
     />
-  ), [onEdit, tc, updateTask, deleteTask, isDark]);
+  ), [onEdit, tc, updateTask, deleteTask, isDark, highlightTaskId]);
+
+  useEffect(() => {
+    if (!highlightTaskId) return;
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightTask(null);
+    }, 3500);
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, [highlightTaskId, setHighlightTask]);
 
   return (
     <View style={[styles.container, { backgroundColor: tc.bg }]}>

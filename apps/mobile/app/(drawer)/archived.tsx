@@ -6,20 +6,22 @@ import { useLanguage } from '../../contexts/language-context';
 
 import { useThemeColors, ThemeColors } from '@/hooks/use-theme-colors';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 function ArchivedTaskItem({
     task,
     isDark,
     tc,
     onRestore,
-    onDelete
+    onDelete,
+    isHighlighted
 }: {
     task: Task;
     isDark: boolean;
     tc: ThemeColors;
     onRestore: () => void;
     onDelete: () => void;
+    isHighlighted?: boolean;
 }) {
     const swipeableRef = useRef<Swipeable>(null);
 
@@ -55,7 +57,11 @@ function ArchivedTaskItem({
             overshootLeft={false}
             overshootRight={false}
         >
-            <View style={[styles.taskItem, { backgroundColor: tc.cardBg }]}>
+            <View style={[
+                styles.taskItem,
+                { backgroundColor: tc.cardBg },
+                isHighlighted && { borderWidth: 2, borderColor: tc.tint }
+            ]}>
                 <View style={styles.taskContent}>
                     <Text style={[styles.taskTitle, { color: tc.secondaryText }]} numberOfLines={2}>
                         {task.title}
@@ -76,13 +82,29 @@ function ArchivedTaskItem({
 }
 
 export default function ArchivedScreen() {
-    const { _allTasks, updateTask, deleteTask } = useTaskStore();
+    const { _allTasks, updateTask, deleteTask, highlightTaskId, setHighlightTask } = useTaskStore();
     const { isDark } = useTheme();
     const { t } = useLanguage();
 
     const tc = useThemeColors();
 
     const archivedTasks = _allTasks.filter((task) => task.status === 'archived' && !task.deletedAt);
+
+    const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!highlightTaskId) return;
+        if (highlightTimerRef.current) {
+            clearTimeout(highlightTimerRef.current);
+        }
+        highlightTimerRef.current = setTimeout(() => {
+            setHighlightTask(null);
+        }, 3500);
+        return () => {
+            if (highlightTimerRef.current) {
+                clearTimeout(highlightTimerRef.current);
+            }
+        };
+    }, [highlightTaskId, setHighlightTask]);
 
     const handleRestore = (taskId: string) => {
         updateTask(taskId, { status: 'inbox' });
@@ -123,6 +145,7 @@ export default function ArchivedScreen() {
                                 tc={tc}
                                 onRestore={() => handleRestore(task.id)}
                                 onDelete={() => handleDelete(task.id)}
+                                isHighlighted={task.id === highlightTaskId}
                             />
                         ))
                     ) : (
