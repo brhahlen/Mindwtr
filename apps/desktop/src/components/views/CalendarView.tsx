@@ -240,8 +240,9 @@ export function CalendarView() {
                 setExternalError(String(error));
                 setExternalEvents([]);
             } finally {
-                if (cancelled) return;
-                setIsExternalLoading(false);
+                if (!cancelled) {
+                    setIsExternalLoading(false);
+                }
             }
         };
 
