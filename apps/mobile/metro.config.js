@@ -30,6 +30,11 @@ config.resolver.nodeModulesPaths = [
     path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// 2.1 Force Metro to resolve runtime helpers from the workspace root.
+config.resolver.extraNodeModules = {
+    '@babel/runtime': path.resolve(workspaceRoot, 'node_modules/@babel/runtime'),
+};
+
 // 3. Handle bun's symlink structure
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
