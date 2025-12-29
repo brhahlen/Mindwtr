@@ -21,6 +21,9 @@
     "mindwtr:api": "bun run scripts/mindwtr-api.ts --",
     "set-version": "bun run scripts/set-version.ts"
   },
+  "devDependencies": {
+    "eslint": "^9.39.1"
+  },
   "dependencies": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
