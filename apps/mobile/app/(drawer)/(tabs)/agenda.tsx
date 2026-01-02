@@ -199,6 +199,7 @@ export default function AgendaScreen() {
   const [selectedPriorities, setSelectedPriorities] = useState<TaskPriority[]>([]);
   const [selectedTimeEstimates, setSelectedTimeEstimates] = useState<TimeEstimate[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
 
   // Theme colors
   // Theme colors
@@ -241,7 +242,7 @@ export default function AgendaScreen() {
     setSelectedTimeEstimates([]);
   };
 
-    const sections = useMemo(() => {
+    const { sections, zenHiddenCount } = useMemo(() => {
         const activeTasks = tasks.filter(t => t.status !== 'done' && !t.deletedAt);
         const filteredActiveTasks = activeTasks.filter((task) => {
           const taskTokens = [...(task.contexts || []), ...(task.tags || [])];
@@ -286,6 +287,15 @@ export default function AgendaScreen() {
       })
       .slice(0, 5);
 
+    if (isZenMode) {
+      const limitedToday = todayTasks.slice(0, 3);
+      const hiddenCount = Math.max(0, todayTasks.length - limitedToday.length);
+      const zenSections = limitedToday.length > 0
+        ? [{ title: `🟡 ${t('agenda.dueToday')}`, data: limitedToday }]
+        : [];
+      return { sections: zenSections, zenHiddenCount: hiddenCount };
+    }
+
     const result = [];
     // Today's Focus always at the top (max 3)
     if (focusedTasks.length > 0) result.push({ title: `🎯 ${t('agenda.todaysFocus') || "Today's Focus"}`, data: focusedTasks.slice(0, 3) });
@@ -295,8 +305,8 @@ export default function AgendaScreen() {
     if (reviewDueTasks.length > 0) result.push({ title: `⏰ ${t('agenda.reviewDue') || 'Review Due'}`, data: reviewDueTasks });
     if (upcomingTasks.length > 0) result.push({ title: `📆 ${t('agenda.upcoming')}`, data: upcomingTasks });
 
-    return result;
-  }, [tasks, t, selectedTokens, selectedPriorities, selectedTimeEstimates]);
+    return { sections: result, zenHiddenCount: 0 };
+  }, [tasks, t, selectedTokens, selectedPriorities, selectedTimeEstimates, isZenMode]);
 
   // Count focused tasks (max 3)
   const focusedCount = tasks.filter(t => t.isFocusedToday && !t.deletedAt && t.status !== 'done').length;
@@ -375,11 +385,24 @@ export default function AgendaScreen() {
             {showFiltersPanel ? t('filters.hide') : t('filters.show')}
           </Text>
         </Pressable>
-        {hasFilters && (
-          <Pressable onPress={clearFilters}>
-            <Text style={[styles.filterAction, { color: tc.secondaryText }]}>{t('filters.clear')}</Text>
+        <View style={styles.filterActions}>
+          {hasFilters && (
+            <Pressable onPress={clearFilters}>
+              <Text style={[styles.filterAction, { color: tc.secondaryText }]}>{t('filters.clear')}</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => setIsZenMode((prev) => !prev)}
+            style={[
+              styles.zenToggle,
+              { backgroundColor: isZenMode ? tc.tint : tc.filterBg, borderColor: tc.border },
+            ]}
+          >
+            <Text style={[styles.zenToggleText, { color: isZenMode ? '#fff' : tc.text }]}>
+              {t('agenda.zenMode') || 'Zen Mode'}
+            </Text>
           </Pressable>
-        )}
+        </View>
       </View>
       {showFiltersPanel && (
         <View style={[styles.filterPanel, { borderBottomColor: tc.border }]}>
@@ -479,6 +502,15 @@ export default function AgendaScreen() {
         renderSectionHeader={renderSectionHeader}
         contentContainerStyle={styles.content}
         stickySectionHeadersEnabled={false}
+        ListFooterComponent={
+          isZenMode && zenHiddenCount > 0 ? (
+            <View style={styles.zenFooter}>
+              <Text style={[styles.zenFooterText, { color: tc.secondaryText }]}>
+                {t('agenda.zenHidden').replace('{{count}}', `${zenHiddenCount}`)}
+              </Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>✨</Text>
@@ -573,6 +605,21 @@ const styles = StyleSheet.create({
   },
   filterAction: {
     fontSize: 12,
+    fontWeight: '600',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  zenToggle: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  zenToggleText: {
+    fontSize: 11,
     fontWeight: '600',
   },
   filterPanel: {
@@ -764,6 +811,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  zenFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  zenFooterText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   modal: {
     position: 'absolute',

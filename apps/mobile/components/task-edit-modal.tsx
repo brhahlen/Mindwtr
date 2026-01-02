@@ -54,7 +54,7 @@ const DEFAULT_TASK_EDITOR_ORDER: TaskEditorFieldId[] = [
     'checklist',
 ];
 
-const DEFAULT_TASK_EDITOR_HIDDEN = DEFAULT_TASK_EDITOR_ORDER.filter((id) => !['status', 'priority', 'contexts', 'description', 'recurrence'].includes(id));
+
 
 type TaskEditTab = 'task' | 'view';
 
@@ -75,6 +75,7 @@ const buildRecurrenceValue = (rule: RecurrenceRule | '', strategy: RecurrenceStr
     if (!rule) return undefined;
     return { rule, strategy };
 };
+
 
 export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, defaultTab }: TaskEditModalProps) {
     const { tasks, projects, settings, duplicateTask, resetTaskChecklist } = useTaskStore();
@@ -169,8 +170,13 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
             setCopilotContext(undefined);
             setCopilotEstimate(undefined);
             setCopilotTags([]);
+        } else if (visible) {
+            setEditedTask({});
+            setShowMoreOptions(false);
+            setShowDescriptionPreview(false);
+            setEditTab(resolveInitialTab(defaultTab, null));
         }
-    }, [task, defaultTab]);
+    }, [task, defaultTab, visible]);
 
     useEffect(() => {
         loadAIKey(aiProvider).then(setAiKey).catch(console.error);
@@ -593,7 +599,6 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
     const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 
     const savedOrder = settings.gtd?.taskEditor?.order ?? [];
-    const savedHidden = settings.gtd?.taskEditor?.hidden ?? DEFAULT_TASK_EDITOR_HIDDEN;
 
     const taskEditorOrder = useMemo(() => {
         const known = new Set(DEFAULT_TASK_EDITOR_ORDER);
@@ -602,20 +607,12 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         return [...normalized, ...missing];
     }, [savedOrder]);
 
-    const hiddenSet = useMemo(() => {
-        const known = new Set(taskEditorOrder);
-        return new Set(savedHidden.filter((id) => known.has(id)));
-    }, [savedHidden, taskEditorOrder]);
+    const primaryFieldIds = useMemo(() => new Set<TaskEditorFieldId>(['dueDate']), []);
 
     useEffect(() => {
+        if (!visible) return;
         setShowMoreOptions(false);
-    }, [savedOrder, savedHidden]);
-
-    useEffect(() => {
-        if (visible) {
-            setShowMoreOptions(false);
-        }
-    }, [visible]);
+    }, [visible, task]);
 
     const mergedTask = useMemo(() => ({
         ...(task ?? {}),
@@ -635,44 +632,45 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         [availableBlockerTasks]
     );
 
+    const hasFieldValue = (fieldId: TaskEditorFieldId) => {
+        switch (fieldId) {
+            case 'status':
+                return Boolean(mergedTask.status);
+            case 'priority':
+                return Boolean(mergedTask.priority);
+            case 'contexts':
+                return (mergedTask.contexts || []).length > 0;
+            case 'description':
+                return Boolean(mergedTask.description && String(mergedTask.description).trim());
+            case 'tags':
+                return (mergedTask.tags || []).length > 0;
+            case 'timeEstimate':
+                return Boolean(mergedTask.timeEstimate);
+            case 'recurrence':
+                return Boolean(mergedTask.recurrence);
+            case 'startTime':
+                return Boolean(mergedTask.startTime);
+            case 'dueDate':
+                return Boolean(mergedTask.dueDate);
+            case 'reviewAt':
+                return Boolean(mergedTask.reviewAt);
+            case 'blockedBy':
+                return (mergedTask.blockedByTaskIds || []).length > 0;
+            case 'attachments':
+                return (mergedTask.attachments || []).some((attachment) => !attachment.deletedAt);
+            case 'checklist':
+                return (mergedTask.checklist || []).length > 0;
+            default:
+                return false;
+        }
+    };
+
     const compactFieldIds = useMemo(() => {
-        const hasValue = (fieldId: TaskEditorFieldId) => {
-            switch (fieldId) {
-                case 'status':
-                    return true;
-                case 'priority':
-                    return Boolean(mergedTask.priority);
-                case 'contexts':
-                    return (mergedTask.contexts || []).length > 0;
-                case 'description':
-                    return Boolean(mergedTask.description && String(mergedTask.description).trim());
-                case 'tags':
-                    return (mergedTask.tags || []).length > 0;
-                case 'timeEstimate':
-                    return Boolean(mergedTask.timeEstimate);
-                case 'recurrence':
-                    return Boolean(mergedTask.recurrence);
-                case 'startTime':
-                    return Boolean(mergedTask.startTime);
-                case 'dueDate':
-                    return Boolean(mergedTask.dueDate);
-                case 'reviewAt':
-                    return Boolean(mergedTask.reviewAt);
-                case 'blockedBy':
-                    return (mergedTask.blockedByTaskIds || []).length > 0;
-                case 'attachments':
-                    return (mergedTask.attachments || []).some((attachment) => !attachment.deletedAt);
-                case 'checklist':
-                    return (mergedTask.checklist || []).length > 0;
-                default:
-                    return false;
-            }
-        };
-        return taskEditorOrder.filter((fieldId) => !hiddenSet.has(fieldId) || hasValue(fieldId));
-    }, [taskEditorOrder, hiddenSet, mergedTask]);
+        return taskEditorOrder.filter((fieldId) => primaryFieldIds.has(fieldId) || hasFieldValue(fieldId));
+    }, [taskEditorOrder, primaryFieldIds, mergedTask]);
 
     const fieldIdsToRender = showMoreOptions ? taskEditorOrder : compactFieldIds;
-    const hasHiddenFields = hiddenSet.size > 0;
+    const hasHiddenFields = taskEditorOrder.some((fieldId) => !primaryFieldIds.has(fieldId) && !hasFieldValue(fieldId));
 
     const recurrenceOptions: { value: RecurrenceRule | ''; label: string }[] = [
         { value: '', label: t('recurrence.none') },
@@ -1684,7 +1682,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                                             onPress={() => setShowMoreOptions((v) => !v)}
                                         >
                                             <Text style={[styles.moreOptionsText, { color: tc.tint }]}>
-                                                {showMoreOptions ? t('common.less') : t('common.more')}
+                                                {showMoreOptions ? t('taskEdit.hideOptions') : t('taskEdit.moreOptions')}
                                             </Text>
                                         </TouchableOpacity>
                                     )}

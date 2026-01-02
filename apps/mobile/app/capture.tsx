@@ -21,6 +21,7 @@ export default function CaptureScreen() {
   const [copilotContext, setCopilotContext] = useState<string | undefined>(undefined);
   const [copilotEstimate, setCopilotEstimate] = useState<TimeEstimate | undefined>(undefined);
   const [copilotTags, setCopilotTags] = useState<string[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -135,7 +136,15 @@ export default function CaptureScreen() {
   return (
     <View style={[styles.container, { backgroundColor: tc.bg }]}>
       <View style={[styles.card, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
-        <Text style={[styles.title, { color: tc.text }]}>{t('nav.addTask')}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: tc.text }]}>{t('nav.addTask')}</Text>
+          <TouchableOpacity
+            onPress={() => setShowHelp((prev) => !prev)}
+            style={[styles.helpToggle, { borderColor: tc.border, backgroundColor: tc.inputBg }]}
+          >
+            <Text style={[styles.helpToggleText, { color: tc.secondaryText }]}>?</Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           ref={inputRef}
           style={[styles.input, { backgroundColor: tc.inputBg, borderColor: tc.border, color: tc.text }]}
@@ -178,7 +187,9 @@ export default function CaptureScreen() {
             </Text>
           </View>
         )}
-        <Text style={[styles.help, { color: tc.secondaryText }]}>{t('quickAdd.help')}</Text>
+        {showHelp && (
+          <Text style={[styles.help, { color: tc.secondaryText }]}>{t('quickAdd.help')}</Text>
+        )}
         <View style={styles.actions}>
           <TouchableOpacity onPress={() => router.back()} style={[styles.button, styles.cancel, { backgroundColor: tc.inputBg }]}>
             <Text style={{ color: tc.text }}>{t('common.cancel')}</Text>
@@ -204,9 +215,26 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
     fontSize: 20,
     fontWeight: '600',
+  },
+  helpToggle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpToggleText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   input: {
     borderWidth: 1,
