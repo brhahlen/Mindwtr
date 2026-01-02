@@ -149,20 +149,16 @@ ARCHS=arm64-v8a bash ./scripts/android_build.sh
 After the build, grab the APKs from:
 
 ```
-android/app/build/outputs/apk/release/
+apps/mobile/build/
 ```
 
-For IzzyOnDroid, upload the arm64 build:
-
-```
-app-arm64-v8a-release.apk
-```
-
-The build script also writes a versioned copy:
+For IzzyOnDroid, upload the versioned arm64 build:
 
 ```
 mindwtr-<version>-arm64-v8a.apk
 ```
+
+The build script may also write the raw Gradle output (e.g. `app-arm64-v8a-release.apk`), but you only need the `mindwtr-<version>-arm64-v8a.apk` file for releases.
 
 To change which ABIs are built by default, edit the `architectures` list for `./plugins/abi-splits` in `apps/mobile/app.json`.
 
@@ -172,10 +168,10 @@ After building, upload the APK to GitHub releases using `gh` CLI:
 
 ```bash
 # Upload to existing release
-gh release upload vX.Y.Z mindwtr.apk --clobber
+gh release upload vX.Y.Z build/mindwtr-<version>-arm64-v8a.apk --clobber
 
 # Or create new release with APK
-gh release create vX.Y.Z mindwtr.apk --title "vX.Y.Z" --notes "Release notes here"
+gh release create vX.Y.Z build/mindwtr-<version>-arm64-v8a.apk --title "vX.Y.Z" --notes "Release notes here"
 
 # View releases
 gh release list

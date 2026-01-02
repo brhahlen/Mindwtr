@@ -67,10 +67,7 @@ for arch in "${ARCH_LIST[@]}"; do
   apk_path="$(ls "$APK_DIR"/app-*${arch_trimmed}*-release*.apk 2>/dev/null | head -1 || true)"
   if [[ -n "$apk_path" ]]; then
     out_name="mindwtr-${VERSION}-${arch_trimmed}.apk"
-    base_name="$(basename "$apk_path")"
-    cp "$apk_path" "${OUTPUT_DIR}/${base_name}"
     cp "$apk_path" "${OUTPUT_DIR}/${out_name}"
-    echo "APK: ${OUTPUT_DIR}/${base_name}"
     echo "APK: ${OUTPUT_DIR}/${out_name}"
     found=1
   fi
@@ -83,9 +80,6 @@ if [[ "$found" -eq 0 ]]; then
     exit 1
   fi
   out_name="mindwtr-${VERSION}-universal.apk"
-  base_name="$(basename "$apk_path")"
-  cp "$apk_path" "${OUTPUT_DIR}/${base_name}"
   cp "$apk_path" "${OUTPUT_DIR}/${out_name}"
-  echo "APK: ${OUTPUT_DIR}/${base_name}"
   echo "APK: ${OUTPUT_DIR}/${out_name}"
 fi
