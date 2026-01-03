@@ -671,7 +671,16 @@ export function SettingsView() {
         },
     } as const;
 
-    const t = labels[language];
+    type Labels = Record<keyof typeof labels.en, string>;
+    const labelsByLanguage: Record<Language, Labels> = {
+        en: labels.en,
+        zh: labels.zh,
+        es: labels.en,
+        hi: labels.en,
+        ar: labels.en,
+    };
+
+    const t = labelsByLanguage[language] ?? labels.en;
 
     const linuxFlavor = useMemo(() => {
         if (!linuxDistro) return null;
