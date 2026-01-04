@@ -5,6 +5,7 @@ import { normalizeTaskStatus } from './task-status';
 export interface QuickAddResult {
     title: string;
     props: Partial<Task>;
+    projectTitle?: string;
 }
 
 const STATUS_TOKENS: Record<string, TaskStatus> = {
@@ -145,6 +146,7 @@ export function parseQuickAdd(input: string, projects?: Project[], now: Date = n
 
     // Project: +ProjectName or /project:<id>
     let projectId: string | undefined;
+    let projectTitle: string | undefined;
     const projectIdMatch = working.match(/\/project:([^\s/]+)/i);
     if (projectIdMatch) {
         const token = projectIdMatch[1];
@@ -166,6 +168,9 @@ export function parseQuickAdd(input: string, projects?: Project[], now: Date = n
             } else if (/^[0-9a-f-]{8,}$/i.test(rawProject)) {
                 projectId = rawProject;
             }
+            if (!projectId) {
+                projectTitle = rawProject;
+            }
             working = stripToken(working, plusMatch[0]);
         }
     }
@@ -180,5 +185,5 @@ export function parseQuickAdd(input: string, projects?: Project[], now: Date = n
     if (tags.size > 0) props.tags = Array.from(tags);
     if (projectId) props.projectId = projectId;
 
-    return { title, props };
+    return { title, props, projectTitle };
 }

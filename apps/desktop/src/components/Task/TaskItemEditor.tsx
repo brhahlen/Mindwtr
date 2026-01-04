@@ -1,5 +1,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import type { ClarifyResponse, Project, TaskEditorFieldId, TimeEstimate } from '@mindwtr/core';
+import { ProjectSelector } from '../ui/ProjectSelector';
+import { TaskInput } from './TaskInput';
 
 interface TaskItemEditorProps {
     t: (key: string) => string;
@@ -28,6 +30,7 @@ interface TaskItemEditorProps {
     projects: Project[];
     editProjectId: string;
     setEditProjectId: (value: string) => void;
+    onCreateProject: (title: string) => Promise<string | null>;
     editDueDate: string;
     setEditDueDate: (value: string) => void;
     showDetails: boolean;
@@ -36,6 +39,7 @@ interface TaskItemEditorProps {
     renderField: (fieldId: TaskEditorFieldId) => ReactNode;
     editLocation: string;
     setEditLocation: (value: string) => void;
+    inputContexts: string[];
     onDuplicateTask: () => void;
     onCancel: () => void;
     onSubmit: (e: FormEvent) => void;
@@ -68,6 +72,7 @@ export function TaskItemEditor({
     projects,
     editProjectId,
     setEditProjectId,
+    onCreateProject,
     editDueDate,
     setEditDueDate,
     showDetails,
@@ -76,6 +81,7 @@ export function TaskItemEditor({
     renderField,
     editLocation,
     setEditLocation,
+    inputContexts,
     onDuplicateTask,
     onCancel,
     onSubmit,
@@ -87,17 +93,18 @@ export function TaskItemEditor({
             onClick={(e) => e.stopPropagation()}
             className="space-y-3"
         >
-            <input
+            <TaskInput
                 autoFocus
-                type="text"
-                aria-label="Task title"
                 value={editTitle}
-                onChange={(e) => {
-                    setEditTitle(e.target.value);
+                onChange={(value) => {
+                    setEditTitle(value);
                     resetCopilotDraft();
                 }}
-                className="w-full bg-transparent border-b border-primary/50 p-1 text-base font-medium focus:ring-0 focus:border-primary outline-none"
+                projects={projects}
+                contexts={inputContexts}
+                onCreateProject={onCreateProject}
                 placeholder={t('taskEdit.titleLabel')}
+                className="w-full bg-transparent border-b border-primary/50 p-1 text-base font-medium focus:ring-0 focus:border-primary outline-none"
             />
             {aiEnabled && (
                 <div className="flex flex-wrap gap-2">
@@ -209,17 +216,14 @@ export function TaskItemEditor({
             <div className="flex flex-wrap gap-4">
                 <div className="flex flex-col gap-1 min-w-[200px]">
                     <label className="text-xs text-muted-foreground font-medium">{t('projects.title')}</label>
-                    <select
+                    <ProjectSelector
+                        projects={projects}
                         value={editProjectId}
-                        aria-label="Project"
-                        onChange={(e) => setEditProjectId(e.target.value)}
-                        className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                    >
-                        <option value="">{t('taskEdit.noProjectOption')}</option>
-                        {projects.map(p => (
-                            <option key={p.id} value={p.id}>{p.title}</option>
-                        ))}
-                    </select>
+                        onChange={setEditProjectId}
+                        onCreateProject={onCreateProject}
+                        placeholder={t('taskEdit.noProjectOption')}
+                        noProjectLabel={t('taskEdit.noProjectOption')}
+                    />
                 </div>
                 <div className="flex flex-col gap-1">
                     <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.dueDateLabel')}</label>

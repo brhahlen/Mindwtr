@@ -110,7 +110,7 @@ export const TaskItem = memo(function TaskItem({
     isMultiSelected = false,
     onToggleSelect,
 }: TaskItemProps) {
-    const { updateTask, deleteTask, moveTask, projects, tasks, settings, duplicateTask, resetTaskChecklist, highlightTaskId, setHighlightTask } = useTaskStore();
+    const { updateTask, deleteTask, moveTask, projects, tasks, settings, duplicateTask, resetTaskChecklist, highlightTaskId, setHighlightTask, addProject } = useTaskStore();
     const { t } = useLanguage();
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(task.title);
@@ -193,6 +193,19 @@ export const TaskItem = memo(function TaskItem({
             .map(([tag]) => tag);
         return Array.from(new Set([...sorted, ...PRESET_TAGS])).slice(0, 8);
     }, [tasks]);
+    const allContexts = useMemo(() => {
+        const taskContexts = tasks.flatMap((t) => t.contexts || []);
+        return Array.from(new Set([...PRESET_CONTEXTS, ...taskContexts])).sort();
+    }, [tasks]);
+    const DEFAULT_PROJECT_COLOR = '#3b82f6';
+    const handleCreateProject = useCallback(async (title: string) => {
+        const trimmed = title.trim();
+        if (!trimmed) return null;
+        const existing = projects.find((project) => project.title.toLowerCase() === trimmed.toLowerCase());
+        if (existing) return existing.id;
+        const created = await addProject(trimmed, DEFAULT_PROJECT_COLOR);
+        return created.id;
+    }, [addProject, projects]);
     const visibleAttachments = (task.attachments || []).filter((a) => !a.deletedAt);
     const visibleEditAttachments = editAttachments.filter((a) => !a.deletedAt);
     const wasEditingRef = useRef(false);
@@ -1048,6 +1061,7 @@ export const TaskItem = memo(function TaskItem({
                             projects={projects}
                             editProjectId={editProjectId}
                             setEditProjectId={setEditProjectId}
+                            onCreateProject={handleCreateProject}
                             editDueDate={editDueDate}
                             setEditDueDate={setEditDueDate}
                             showDetails={showDetails}
@@ -1056,6 +1070,7 @@ export const TaskItem = memo(function TaskItem({
                             renderField={renderField}
                             editLocation={editLocation}
                             setEditLocation={setEditLocation}
+                            inputContexts={allContexts}
                             onDuplicateTask={() => duplicateTask(task.id, false)}
                             onCancel={() => {
                                 resetEditState();

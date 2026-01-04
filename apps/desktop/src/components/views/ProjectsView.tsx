@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useTaskStore, Attachment, Task, type Project, generateUUID, safeFormatDate, safeParseDate, parseQuickAdd } from '@mindwtr/core';
+import { useTaskStore, Attachment, Task, type Project, generateUUID, safeFormatDate, safeParseDate, parseQuickAdd, PRESET_CONTEXTS } from '@mindwtr/core';
 import { TaskItem } from '../TaskItem';
+import { TaskInput } from '../Task/TaskInput';
 import { Plus, Folder, Trash2, ListOrdered, ChevronRight, ChevronDown, Archive as ArchiveIcon, RotateCcw, Paperclip, Link2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../contexts/language-context';
@@ -36,6 +37,7 @@ export function ProjectsView() {
     const [pendingAreaAssignProjectId, setPendingAreaAssignProjectId] = useState<string | null>(null);
     const [tagDraft, setTagDraft] = useState('');
     const [editProjectTitle, setEditProjectTitle] = useState('');
+    const [projectTaskTitle, setProjectTaskTitle] = useState('');
     const ALL_AREAS = '__all__';
     const NO_AREA = '__none__';
     const ALL_TAGS = '__all__';
@@ -185,6 +187,10 @@ export function ProjectsView() {
         const remainingCount = projectItems.length - doneCount;
         return { doneCount, remainingCount, total: projectItems.length };
     }, [tasks, selectedProjectId]);
+    const allContexts = useMemo(() => {
+        const taskContexts = tasks.flatMap((task) => task.contexts || []);
+        return Array.from(new Set([...PRESET_CONTEXTS, ...taskContexts])).sort();
+    }, [tasks]);
 
     useEffect(() => {
         if (!selectedProject) {
@@ -193,6 +199,10 @@ export function ProjectsView() {
         }
         setTagDraft((selectedProject.tagIds || []).join(', '));
     }, [selectedProject?.id, selectedProject?.tagIds]);
+
+    useEffect(() => {
+        setProjectTaskTitle('');
+    }, [selectedProject?.id]);
 
     const openAttachment = (attachment: Attachment) => {
         if (attachment.kind === 'link') {
@@ -850,26 +860,33 @@ export function ProjectsView() {
 		                        </div>
 
 	                        <div className="mb-6">
-	                            <form
-                                onSubmit={(e) => {
+                            <form
+                                onSubmit={async (e) => {
                                     e.preventDefault();
-                                    const form = e.target as HTMLFormElement;
-                                    const input = form.elements.namedItem('taskTitle') as HTMLInputElement;
-                                    if (input.value.trim()) {
-                                        const { title: parsedTitle, props } = parseQuickAdd(input.value, projects);
-                                        const finalTitle = parsedTitle || input.value;
-                                        const initialProps: Partial<Task> = { projectId: selectedProject.id, status: 'next', ...props };
-                                        if (!props.status) initialProps.status = 'next';
-                                        if (!props.projectId) initialProps.projectId = selectedProject.id;
-                                        addTask(finalTitle, initialProps);
-                                        input.value = '';
+                                    if (!projectTaskTitle.trim()) return;
+                                    const { title: parsedTitle, props, projectTitle } = parseQuickAdd(projectTaskTitle, projects);
+                                    const finalTitle = parsedTitle || projectTaskTitle;
+                                    const initialProps: Partial<Task> = { projectId: selectedProject.id, status: 'next', ...props };
+                                    if (!props.status) initialProps.status = 'next';
+                                    if (!props.projectId) initialProps.projectId = selectedProject.id;
+                                    if (!initialProps.projectId && projectTitle) {
+                                        const created = await addProject(projectTitle, '#3b82f6');
+                                        initialProps.projectId = created.id;
                                     }
+                                    await addTask(finalTitle, initialProps);
+                                    setProjectTaskTitle('');
                                 }}
                                 className="flex gap-2"
                             >
-                                <input
-                                    name="taskTitle"
-                                    type="text"
+                                <TaskInput
+                                    value={projectTaskTitle}
+                                    projects={projects}
+                                    contexts={allContexts}
+                                    onCreateProject={async (title) => {
+                                        const created = await addProject(title, '#3b82f6');
+                                        return created.id;
+                                    }}
+                                    onChange={(next) => setProjectTaskTitle(next)}
                                     placeholder={t('projects.addTaskPlaceholder')}
                                     className="flex-1 bg-card border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 />

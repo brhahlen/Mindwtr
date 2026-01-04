@@ -45,7 +45,7 @@ export function TaskList({
 }: TaskListProps) {
   const { isDark } = useTheme();
   const { t } = useLanguage();
-  const { tasks, projects, addTask, updateTask, deleteTask, fetchData, batchMoveTasks, batchDeleteTasks, batchUpdateTasks, settings, updateSettings, highlightTaskId, setHighlightTask } = useTaskStore();
+  const { tasks, projects, addTask, addProject, updateTask, deleteTask, fetchData, batchMoveTasks, batchDeleteTasks, batchUpdateTasks, settings, updateSettings, highlightTaskId, setHighlightTask } = useTaskStore();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [aiKey, setAiKey] = useState('');
   const [copilotSuggestion, setCopilotSuggestion] = useState<{ context?: string; timeEstimate?: Task['timeEstimate']; tags?: string[] } | null>(null);
@@ -60,6 +60,9 @@ export function TaskList({
   const [tagModalVisible, setTagModalVisible] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+  const [typeaheadOpen, setTypeaheadOpen] = useState(false);
+  const [typeaheadIndex, setTypeaheadIndex] = useState(0);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copilotAbortRef = useRef<AbortController | null>(null);
 
@@ -103,6 +106,74 @@ export function TaskList({
     const taskTags = tasks.flatMap((task) => task.tags || []);
     return Array.from(new Set([...PRESET_TAGS, ...taskTags])).filter(Boolean);
   }, [tasks]);
+
+  type TriggerType = 'project' | 'context';
+  type TriggerState = { type: TriggerType; start: number; end: number; query: string };
+  type Option =
+    | { kind: 'create'; label: string; value: string }
+    | { kind: 'project'; label: string; value: string }
+    | { kind: 'context'; label: string; value: string };
+
+  const getTrigger = useCallback((text: string, caret: number): TriggerState | null => {
+    if (caret < 0) return null;
+    const before = text.slice(0, caret);
+    const lastSpace = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\n'), before.lastIndexOf('\t'));
+    const start = lastSpace + 1;
+    const token = before.slice(start);
+    if (!token.startsWith('+') && !token.startsWith('@')) return null;
+    return {
+      type: token.startsWith('+') ? 'project' : 'context',
+      start,
+      end: caret,
+      query: token.slice(1),
+    };
+  }, []);
+
+  const trigger = useMemo(() => {
+    return getTrigger(newTaskTitle, inputSelection.start ?? newTaskTitle.length);
+  }, [getTrigger, inputSelection.start, newTaskTitle]);
+
+  const typeaheadOptions = useMemo<Option[]>(() => {
+    if (!trigger) return [];
+    const query = trigger.query.trim().toLowerCase();
+    if (trigger.type === 'project') {
+      const matches = projects.filter((project) => project.title.toLowerCase().includes(query));
+      const hasExact = query.length > 0 && projects.some((project) => project.title.toLowerCase() === query);
+      const result: Option[] = [];
+      if (!hasExact && query.length > 0) {
+        result.push({
+          kind: 'create' as const,
+          label: `Create \"${trigger.query.trim()}\"`,
+          value: trigger.query.trim(),
+        });
+      }
+      result.push(
+        ...matches.map((project) => ({
+          kind: 'project' as const,
+          label: project.title,
+          value: project.title,
+        }))
+      );
+      return result;
+    }
+    const matches = contextOptions.filter((context) => {
+      const raw = context.startsWith('@') || context.startsWith('#') ? context.slice(1) : context;
+      return raw.toLowerCase().includes(query);
+    });
+    return matches.map((context) => ({
+      kind: 'context' as const,
+      label: context,
+      value: context,
+    }));
+  }, [contextOptions, projects, trigger]);
+
+  useEffect(() => {
+    if (!trigger || typeaheadOptions.length === 0) {
+      setTypeaheadOpen(false);
+      return;
+    }
+    setTypeaheadOpen(true);
+  }, [trigger, typeaheadOptions.length]);
 
   useEffect(() => {
     loadAIKey(aiProvider).then(setAiKey).catch(console.error);
@@ -172,20 +243,24 @@ export function TaskList({
     setRefreshing(false);
   }, [fetchData]);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
 
     const defaultStatus: TaskStatus = projectId
       ? 'next'
       : (statusFilter !== 'all' ? statusFilter : 'inbox');
 
-    const { title: parsedTitle, props } = parseQuickAdd(newTaskTitle, projects);
+    const { title: parsedTitle, props, projectTitle } = parseQuickAdd(newTaskTitle, projects);
     const finalTitle = parsedTitle || newTaskTitle;
     if (!finalTitle.trim()) return;
 
     const initialProps: Partial<Task> = { projectId, status: defaultStatus, ...props };
     if (!props.status) initialProps.status = defaultStatus;
     if (!props.projectId && projectId) initialProps.projectId = projectId;
+    if (!initialProps.projectId && projectTitle) {
+      const created = await addProject(projectTitle, '#3b82f6');
+      initialProps.projectId = created.id;
+    }
     if (copilotContext) {
       const nextContexts = Array.from(new Set([...(initialProps.contexts ?? []), copilotContext]));
       initialProps.contexts = nextContexts;
@@ -195,13 +270,39 @@ export function TaskList({
       initialProps.tags = nextTags;
     }
 
-    addTask(finalTitle, initialProps);
+    await addTask(finalTitle, initialProps);
     setNewTaskTitle('');
+    setTypeaheadOpen(false);
     setCopilotSuggestion(null);
     setCopilotApplied(false);
     setCopilotContext(undefined);
     setCopilotTags([]);
   };
+
+  const applyTypeaheadOption = useCallback(async (option: Option) => {
+    if (!trigger) return;
+    let tokenValue = option.value;
+    if (option.kind === 'create') {
+      const title = option.value.trim();
+      if (title) {
+        await addProject(title, '#3b82f6');
+      }
+    }
+    if (trigger.type === 'project') {
+      tokenValue = `+${tokenValue}`;
+    } else {
+      tokenValue = tokenValue.startsWith('@') ? tokenValue : `@${tokenValue}`;
+    }
+    const before = newTaskTitle.slice(0, trigger.start);
+    const after = newTaskTitle.slice(trigger.end);
+    const needsSpace = after.length > 0 && !/^\s/.test(after);
+    const nextValue = `${before}${tokenValue}${needsSpace ? ' ' : ''}${after}`;
+    setNewTaskTitle(nextValue);
+    const caret = before.length + tokenValue.length + (needsSpace ? 1 : 0);
+    setInputSelection({ start: caret, end: caret });
+    setTypeaheadOpen(false);
+    setTypeaheadIndex(0);
+  }, [addProject, newTaskTitle, trigger]);
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
@@ -369,9 +470,16 @@ export function TaskList({
               value={newTaskTitle}
               onChangeText={(text) => {
                 setNewTaskTitle(text);
+                setInputSelection({ start: text.length, end: text.length });
+                setTypeaheadIndex(0);
                 setCopilotApplied(false);
                 setCopilotContext(undefined);
                 setCopilotTags([]);
+              }}
+              onSelectionChange={(event) => {
+                const selection = event.nativeEvent.selection;
+                setInputSelection(selection);
+                setTypeaheadOpen(Boolean(getTrigger(newTaskTitle, selection.start ?? newTaskTitle.length)));
               }}
               onSubmitEditing={handleAddTask}
               returnKeyType="done"
@@ -393,6 +501,24 @@ export function TaskList({
               <Text style={styles.addButtonText}>+</Text>
             </TouchableOpacity>
           </View>
+          {typeaheadOpen && trigger && typeaheadOptions.length > 0 && (
+            <View style={[styles.typeaheadContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+              {typeaheadOptions.map((option, index) => (
+                <TouchableOpacity
+                  key={`${option.kind}-${option.value}-${index}`}
+                  onPress={() => applyTypeaheadOption(option)}
+                  style={[
+                    styles.typeaheadRow,
+                    index === typeaheadIndex && { backgroundColor: themeColors.filterBg },
+                  ]}
+                >
+                  <Text style={[styles.typeaheadText, { color: themeColors.text }]}>
+                    {option.kind === 'create' ? `✨ ${option.label}` : option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
           {enableCopilot && aiEnabled && copilotSuggestion && !copilotApplied && (
             <TouchableOpacity
               style={[styles.copilotPill, { borderColor: themeColors.border, backgroundColor: themeColors.inputBg }]}
@@ -729,6 +855,19 @@ const styles = StyleSheet.create({
   },
   addButtonDisabled: {
     opacity: 0.5,
+  },
+  typeaheadContainer: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  typeaheadRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  typeaheadText: {
+    fontSize: 13,
   },
   addButtonText: {
     color: '#fff',

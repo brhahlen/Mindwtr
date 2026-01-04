@@ -111,7 +111,7 @@ interface TaskStore {
 
     // Project Actions
     /** Add a new project */
-    addProject: (title: string, color: string, initialProps?: Partial<Project>) => Promise<void>;
+    addProject: (title: string, color: string, initialProps?: Partial<Project>) => Promise<Project>;
     /** Update a project */
     updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
     /** Delete a project */
@@ -581,6 +581,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             { tasks: get()._allTasks, projects: newAllProjects, areas: get()._allAreas, settings: get().settings },
             (msg) => set({ error: msg })
         );
+        return newProject;
     },
 
     /**

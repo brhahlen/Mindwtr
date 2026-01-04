@@ -3,6 +3,7 @@ import { Plus, Play, X, Trash2, Moon, User, CheckCircle, Filter } from 'lucide-r
 import { useTaskStore, TaskStatus, Task, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, sortTasksBy, Project, parseQuickAdd, matchesHierarchicalToken, safeParseDate, createAIProvider } from '@mindwtr/core';
 import type { TaskSortBy } from '@mindwtr/core';
 import { TaskItem } from '../TaskItem';
+import { TaskInput } from '../Task/TaskInput';
 import { cn } from '../../lib/utils';
 import { PromptModal } from '../PromptModal';
 import { useLanguage } from '../../contexts/language-context';
@@ -18,7 +19,7 @@ interface ListViewProps {
 type ProcessingStep = 'actionable' | 'twomin' | 'decide' | 'context' | 'project' | 'waiting-note';
 
 export function ListView({ title, statusFilter }: ListViewProps) {
-    const { tasks, projects, settings, updateSettings, addTask, updateTask, deleteTask, moveTask, batchMoveTasks, batchDeleteTasks, batchUpdateTasks } = useTaskStore();
+    const { tasks, projects, settings, updateSettings, addTask, addProject, updateTask, deleteTask, moveTask, batchMoveTasks, batchDeleteTasks, batchUpdateTasks } = useTaskStore();
     const { t } = useLanguage();
     const { registerTaskListScope } = useKeybindings();
     const sortBy = (settings?.taskSortBy ?? 'default') as TaskSortBy;
@@ -57,6 +58,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
     const [processingStep, setProcessingStep] = useState<ProcessingStep>('actionable');
     const [selectedContexts, setSelectedContexts] = useState<string[]>([]);
     const [waitingNote, setWaitingNote] = useState('');
+    const [projectSearch, setProjectSearch] = useState('');
 
     const allContexts = useMemo(() => {
         const taskContexts = tasks.flatMap(t => t.contexts || []);
@@ -123,6 +125,18 @@ export function ListView({ title, statusFilter }: ListViewProps) {
             return acc;
         }, {} as Record<string, Project>);
     }, [projects]);
+
+    const filteredProjects = useMemo(() => {
+        if (!projectSearch.trim()) return projects;
+        const query = projectSearch.trim().toLowerCase();
+        return projects.filter((project) => project.title.toLowerCase().includes(query));
+    }, [projects, projectSearch]);
+
+    const hasExactProjectMatch = useMemo(() => {
+        if (!projectSearch.trim()) return false;
+        const query = projectSearch.trim().toLowerCase();
+        return projects.some((project) => project.title.toLowerCase() === query);
+    }, [projects, projectSearch]);
 
     const tasksById = useMemo(() => {
         return tasks.reduce((acc, task) => {
@@ -325,12 +339,16 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         setTagPromptOpen(true);
     }, [batchUpdateTasks, selectedIdsArray, tasksById, t, exitSelectionMode]);
 
-    const handleAddTask = (e: React.FormEvent) => {
+    const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newTaskTitle.trim()) {
-            const { title: parsedTitle, props } = parseQuickAdd(newTaskTitle, projects);
+            const { title: parsedTitle, props, projectTitle } = parseQuickAdd(newTaskTitle, projects);
             const finalTitle = parsedTitle || newTaskTitle;
             const initialProps: Partial<Task> = { ...props };
+            if (!initialProps.projectId && projectTitle) {
+                const created = await addProject(projectTitle, '#3b82f6');
+                initialProps.projectId = created.id;
+            }
             // Only set status if we have an explicit filter and parser didn't set one
             if (!initialProps.status && statusFilter !== 'all') {
                 initialProps.status = statusFilter;
@@ -343,7 +361,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                 const existingTags = initialProps.tags ?? [];
                 initialProps.tags = Array.from(new Set([...existingTags, ...copilotTags]));
             }
-            addTask(finalTitle, initialProps);
+            await addTask(finalTitle, initialProps);
             setNewTaskTitle('');
             setCopilotSuggestion(null);
             setCopilotApplied(false);
@@ -821,6 +839,44 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                                 {t('process.projectDesc')}
                             </p>
 
+                            <div className="space-y-2">
+                                <input
+                                    value={projectSearch}
+                                    onChange={(e) => setProjectSearch(e.target.value)}
+                                    onKeyDown={async (e) => {
+                                        if (e.key !== 'Enter') return;
+                                        if (!projectSearch.trim()) return;
+                                        e.preventDefault();
+                                        const title = projectSearch.trim();
+                                        const existing = projects.find((project) => project.title.toLowerCase() === title.toLowerCase());
+                                        if (existing) {
+                                            handleSetProject(existing.id);
+                                            return;
+                                        }
+                                        const created = await addProject(title, '#3b82f6');
+                                        handleSetProject(created.id);
+                                        setProjectSearch('');
+                                    }}
+                                    placeholder={t('projects.addPlaceholder')}
+                                    className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                />
+                                {!hasExactProjectMatch && projectSearch.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            const title = projectSearch.trim();
+                                            if (!title) return;
+                                            const created = await addProject(title, '#3b82f6');
+                                            handleSetProject(created.id);
+                                            setProjectSearch('');
+                                        }}
+                                        className="w-full py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
+                                    >
+                                        {t('projects.create')} "{projectSearch.trim()}"
+                                    </button>
+                                )}
+                            </div>
+
                             {/* No project option */}
                             <button
                                 onClick={() => handleSetProject(null)}
@@ -830,9 +886,9 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                             </button>
 
                             {/* Project list */}
-                            {projects.length > 0 && (
+                            {filteredProjects.length > 0 && (
                                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                                    {projects.map(project => (
+                                    {filteredProjects.map(project => (
                                         <button
                                             key={project.id}
                                             onClick={() => handleSetProject(project.id)}
@@ -972,17 +1028,22 @@ export function ListView({ title, statusFilter }: ListViewProps) {
             {/* Only show add task for inbox/next - other views are read-only */}
             {['inbox', 'next'].includes(statusFilter) && (
                 <form onSubmit={handleAddTask} className="relative">
-                    <input
-                        ref={addInputRef}
-                        type="text"
-                        placeholder={`${t('nav.addTask')}... ${t('quickAdd.example')}`}
+                    <TaskInput
+                        inputRef={addInputRef}
                         value={newTaskTitle}
-                        onChange={(e) => {
-                            setNewTaskTitle(e.target.value);
+                        projects={projects}
+                        contexts={allContexts}
+                        onCreateProject={async (title) => {
+                            const created = await addProject(title, '#3b82f6');
+                            return created.id;
+                        }}
+                        onChange={(next) => {
+                            setNewTaskTitle(next);
                             setCopilotApplied(false);
                             setCopilotContext(null);
                             setCopilotTags([]);
                         }}
+                        placeholder={`${t('nav.addTask')}... ${t('quickAdd.example')}`}
                         className="w-full bg-card border border-border rounded-lg py-3 pl-4 pr-12 shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                     />
                     <button

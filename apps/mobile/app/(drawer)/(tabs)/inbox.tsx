@@ -14,7 +14,7 @@ import { buildAIConfig, loadAIKey } from '../../../lib/ai-config';
 
 export default function InboxScreen() {
 
-  const { tasks, projects, settings, updateTask, deleteTask } = useTaskStore();
+  const { tasks, projects, settings, updateTask, deleteTask, addProject } = useTaskStore();
   const { t } = useLanguage();
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -22,6 +22,7 @@ export default function InboxScreen() {
   const [newContext, setNewContext] = useState('');
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [waitingNote, setWaitingNote] = useState('');
+  const [projectSearch, setProjectSearch] = useState('');
   const [pendingStartDate, setPendingStartDate] = useState<Date | null>(null);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [isAIWorking, setIsAIWorking] = useState(false);
@@ -80,6 +81,7 @@ export default function InboxScreen() {
       setCurrentIndex(0);
       setSkippedIds(new Set());
       setPendingStartDate(null);
+      setProjectSearch('');
     }
   };
 
@@ -91,6 +93,18 @@ export default function InboxScreen() {
   };
 
   const [selectedContexts, setSelectedContexts] = useState<string[]>([]);
+
+  const filteredProjects = useMemo(() => {
+    if (!projectSearch.trim()) return projects;
+    const query = projectSearch.trim().toLowerCase();
+    return projects.filter((project) => project.title.toLowerCase().includes(query));
+  }, [projects, projectSearch]);
+
+  const hasExactProjectMatch = useMemo(() => {
+    if (!projectSearch.trim()) return false;
+    const query = projectSearch.trim().toLowerCase();
+    return projects.some((project) => project.title.toLowerCase() === query);
+  }, [projects, projectSearch]);
 
   const handleNotActionable = (action: 'trash' | 'someday' | 'reference') => {
     if (!currentTask) return;
@@ -649,6 +663,43 @@ export default function InboxScreen() {
 	                  📁 {t('inbox.assignProjectQuestion')}
 	                </Text>
 
+                  <View style={styles.projectSearchRow}>
+                    <TextInput
+                      value={projectSearch}
+                      onChangeText={setProjectSearch}
+                      placeholder={t('projects.addPlaceholder')}
+                      placeholderTextColor={tc.secondaryText}
+                      style={[styles.projectSearchInput, { backgroundColor: tc.inputBg, borderColor: tc.border, color: tc.text }]}
+                      onSubmitEditing={async () => {
+                        const title = projectSearch.trim();
+                        if (!title) return;
+                        const existing = projects.find((project) => project.title.toLowerCase() === title.toLowerCase());
+                        if (existing) {
+                          handleSetProject(existing.id);
+                          return;
+                        }
+                        const created = await addProject(title, '#3b82f6');
+                        handleSetProject(created.id);
+                        setProjectSearch('');
+                      }}
+                      returnKeyType="done"
+                    />
+                    {!hasExactProjectMatch && projectSearch.trim() && (
+                      <TouchableOpacity
+                        style={[styles.createProjectButton, { backgroundColor: tc.tint }]}
+                        onPress={async () => {
+                          const title = projectSearch.trim();
+                          if (!title) return;
+                          const created = await addProject(title, '#3b82f6');
+                          handleSetProject(created.id);
+                          setProjectSearch('');
+                        }}
+                      >
+                        <Text style={styles.createProjectButtonText}>{t('projects.create')}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
                 <ScrollView style={{ maxHeight: 300 }}>
                   <TouchableOpacity
                     style={[styles.projectChip, { backgroundColor: '#10B981' }]}
@@ -656,7 +707,7 @@ export default function InboxScreen() {
 	                  >
 	                    <Text style={styles.projectChipText}>✓ {t('inbox.noProject')}</Text>
 	                  </TouchableOpacity>
-                  {projects.map(proj => (
+                  {filteredProjects.map(proj => (
                     <TouchableOpacity
                       key={proj.id}
                       style={[styles.projectChip, { backgroundColor: tc.cardBg, borderWidth: 1, borderColor: tc.border }]}
@@ -753,6 +804,27 @@ const styles = StyleSheet.create({
   stepHint: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  projectSearchRow: {
+    gap: 8,
+  },
+  projectSearchInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  createProjectButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  createProjectButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 12,
   },
   startDateRow: {
     gap: 8,

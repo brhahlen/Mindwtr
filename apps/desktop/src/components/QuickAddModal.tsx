@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
-import { useTaskStore, parseQuickAdd, Task } from '@mindwtr/core';
+import { useEffect, useState } from 'react';
+import { useTaskStore, parseQuickAdd, PRESET_CONTEXTS, Task } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
 import { cn } from '../lib/utils';
 import { isTauriRuntime } from '../lib/runtime';
+import { TaskInput } from './Task/TaskInput';
 
 export function QuickAddModal() {
-    const { addTask, projects } = useTaskStore();
+    const { addTask, addProject, projects } = useTaskStore();
     const { t } = useLanguage();
     const [isOpen, setIsOpen] = useState(false);
     const [value, setValue] = useState('');
-    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!isTauriRuntime()) return;
@@ -57,19 +57,23 @@ export function QuickAddModal() {
     useEffect(() => {
         if (isOpen) {
             setValue('');
-            setTimeout(() => inputRef.current?.focus(), 50);
         }
     }, [isOpen]);
 
     const close = () => setIsOpen(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!value.trim()) return;
-        const { title, props } = parseQuickAdd(value, projects);
+        const { title, props, projectTitle } = parseQuickAdd(value, projects);
         const finalTitle = title || value;
         if (!finalTitle.trim()) return;
-        const initialProps: Partial<Task> = { status: 'inbox', ...props };
+        let projectId = props.projectId;
+        if (!projectId && projectTitle) {
+            const created = await addProject(projectTitle, '#3b82f6');
+            projectId = created.id;
+        }
+        const initialProps: Partial<Task> = { status: 'inbox', ...props, projectId };
         if (!props.status) initialProps.status = 'inbox';
         addTask(finalTitle, initialProps);
         close();
@@ -100,10 +104,16 @@ export function QuickAddModal() {
                     <button onClick={close} className="text-sm text-muted-foreground hover:text-foreground">Esc</button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-4 space-y-2">
-                    <input
-                        ref={inputRef}
+                    <TaskInput
                         value={value}
-                        onChange={(e) => setValue(e.target.value)}
+                        autoFocus
+                        projects={projects}
+                        contexts={PRESET_CONTEXTS}
+                        onCreateProject={async (title) => {
+                            const created = await addProject(title, '#3b82f6');
+                            return created.id;
+                        }}
+                        onChange={(next) => setValue(next)}
                         onKeyDown={(e) => {
                             if (e.key === 'Escape') {
                                 e.preventDefault();
