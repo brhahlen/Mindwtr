@@ -76,6 +76,7 @@ export function SettingsView() {
     const [saved, setSaved] = useState(false);
     const [appVersion, setAppVersion] = useState('0.1.0');
     const [dataPath, setDataPath] = useState('');
+    const [dbPath, setDbPath] = useState('');
     const [configPath, setConfigPath] = useState('');
     const [logPath, setLogPath] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
@@ -140,13 +141,15 @@ export function SettingsView() {
 
         import('@tauri-apps/api/core')
             .then(async ({ invoke }) => {
-                const [data, config, distro] = await Promise.all([
+                const [data, config, db, distro] = await Promise.all([
                     invoke<string>('get_data_path_cmd'),
                     invoke<string>('get_config_path_cmd'),
+                    invoke<string>('get_db_path_cmd'),
                     invoke<LinuxDistroInfo | null>('get_linux_distro'),
                 ]);
                 setDataPath(data);
                 setConfigPath(config);
+                setDbPath(db);
                 setLinuxDistro(distro);
             })
             .catch(console.error);
@@ -1533,8 +1536,14 @@ export function SettingsView() {
                             <p className="text-sm text-muted-foreground">{isTauriRuntime() ? t.localDataDesc : t.webDataDesc}</p>
                             {isTauriRuntime() && dataPath && (
                                 <div className="space-y-2 text-sm">
+                                    {dbPath && (
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span className="text-muted-foreground">mindwtr.db</span>
+                                            <span className="font-mono text-xs break-all">{dbPath}</span>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between gap-4">
-                                        <span className="text-muted-foreground">data.json</span>
+                                        <span className="text-muted-foreground">data.json (backup)</span>
                                         <span className="font-mono text-xs break-all">{dataPath}</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-4">
@@ -1769,8 +1778,16 @@ export function SettingsView() {
                     </div>
                     {isTauriRuntime() && (
                         <div className="grid sm:grid-cols-2 gap-3">
+                            {dbPath && (
+                                <div className="space-y-1">
+                                    <div className="text-xs font-medium text-muted-foreground">mindwtr.db</div>
+                                    <div className="text-xs font-mono bg-muted/60 border border-border rounded px-2 py-1 break-all">
+                                        {dbPath}
+                                    </div>
+                                </div>
+                            )}
                             <div className="space-y-1">
-                                <div className="text-xs font-medium text-muted-foreground">data.json</div>
+                                <div className="text-xs font-medium text-muted-foreground">data.json (backup)</div>
                                 <div className="text-xs font-mono bg-muted/60 border border-border rounded px-2 py-1 break-all">
                                     {dataPath}
                                 </div>

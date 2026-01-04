@@ -1,4 +1,4 @@
-import { StorageAdapter, AppData } from '@mindwtr/core';
+import { AppData, SqliteAdapter, type SqliteClient, StorageAdapter } from '@mindwtr/core';
 import { Platform } from 'react-native';
 
 import { WIDGET_DATA_KEY } from './widget-data';
@@ -6,6 +6,148 @@ import { updateAndroidWidgetFromData } from './widget-service';
 
 const DATA_KEY = WIDGET_DATA_KEY;
 const LEGACY_DATA_KEYS = ['focus-gtd-data', 'gtd-todo-data', 'gtd-data'];
+const SQLITE_DB_NAME = 'mindwtr.db';
+
+type SqliteState = {
+    adapter: SqliteAdapter;
+    client: SqliteClient;
+};
+
+let sqliteStatePromise: Promise<SqliteState> | null = null;
+
+const createLegacyClient = (db: any): SqliteClient => {
+    const execSql = (sql: string, params: unknown[] = []) =>
+        new Promise<any>((resolve, reject) => {
+            db.transaction(
+                (tx: any) => {
+                    tx.executeSql(
+                        sql,
+                        params,
+                        (_: any, result: any) => resolve(result),
+                        (_: any, error: any) => {
+                            reject(error);
+                            return true;
+                        }
+                    );
+                },
+                (error: any) => reject(error)
+            );
+        });
+
+    const exec = async (sql: string) => {
+        const statements = sql
+            .split(';')
+            .map((statement) => statement.trim())
+            .filter(Boolean);
+        for (const statement of statements) {
+            await execSql(statement);
+        }
+    };
+
+    return {
+        run: async (sql: string, params: unknown[] = []) => {
+            await execSql(sql, params);
+        },
+        all: async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+            const result = await execSql(sql, params);
+            const rows = result?.rows;
+            if (!rows) return [] as T[];
+            if (Array.isArray(rows._array)) return rows._array as T[];
+            const collected: T[] = [];
+            for (let i = 0; i < rows.length; i += 1) {
+                collected.push(rows.item(i));
+            }
+            return collected;
+        },
+        get: async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+            const result = await execSql(sql, params);
+            const rows = result?.rows;
+            if (!rows || rows.length === 0) return undefined;
+            if (Array.isArray(rows._array)) return rows._array[0] as T;
+            return rows.item(0) as T;
+        },
+        exec,
+    };
+};
+
+const createSqliteClient = async (): Promise<SqliteClient> => {
+    const SQLite = await import('expo-sqlite');
+    const openDatabaseAsync = (SQLite as any).openDatabaseAsync as ((name: string) => Promise<any>) | undefined;
+    if (openDatabaseAsync) {
+        const db = await openDatabaseAsync(SQLITE_DB_NAME);
+        return {
+            run: async (sql: string, params: unknown[] = []) => {
+                await db.runAsync(sql, params);
+            },
+            all: async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
+                db.getAllAsync(sql, params) as Promise<T[]>,
+            get: async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
+                (await db.getFirstAsync(sql, params)) as T | undefined,
+            exec: async (sql: string) => {
+                await db.execAsync(sql);
+            },
+        };
+    }
+
+    const legacyDb = (SQLite as any).openDatabase(SQLITE_DB_NAME);
+    return createLegacyClient(legacyDb);
+};
+
+const sqliteHasAnyData = async (client: SqliteClient): Promise<boolean> => {
+    const count = async (table: string) => {
+        const row = await client.get<{ count?: number }>(`SELECT COUNT(*) as count FROM ${table}`);
+        return Number(row?.count ?? 0);
+    };
+    const [tasks, projects, areas, settings] = await Promise.all([
+        count('tasks'),
+        count('projects'),
+        count('areas'),
+        count('settings'),
+    ]);
+    return tasks > 0 || projects > 0 || areas > 0 || settings > 0;
+};
+
+const getLegacyJson = async (AsyncStorage: any): Promise<string | null> => {
+    let jsonValue = await AsyncStorage.getItem(DATA_KEY);
+    if (jsonValue != null) return jsonValue;
+    for (const legacyKey of LEGACY_DATA_KEYS) {
+        const legacyValue = await AsyncStorage.getItem(legacyKey);
+        if (legacyValue != null) {
+            await AsyncStorage.setItem(DATA_KEY, legacyValue);
+            return legacyValue;
+        }
+    }
+    return null;
+};
+
+const initSqliteState = async (): Promise<SqliteState> => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const client = await createSqliteClient();
+    const adapter = new SqliteAdapter(client);
+    await adapter.ensureSchema();
+    const hasData = await sqliteHasAnyData(client);
+    if (!hasData) {
+        const jsonValue = await getLegacyJson(AsyncStorage);
+        if (jsonValue != null) {
+            try {
+                const data = JSON.parse(jsonValue) as AppData;
+                data.areas = Array.isArray(data.areas) ? data.areas : [];
+                await adapter.saveData(data);
+                await AsyncStorage.setItem(DATA_KEY, JSON.stringify(data));
+            } catch (error) {
+                console.warn('[Storage] Failed to migrate JSON data to SQLite', error);
+            }
+        }
+    }
+    return { adapter, client };
+};
+
+const getSqliteState = async (): Promise<SqliteState> => {
+    if (!sqliteStatePromise) {
+        sqliteStatePromise = initSqliteState();
+    }
+    return sqliteStatePromise;
+};
 
 // Platform-specific storage implementation
 const createStorage = (): StorageAdapter => {
@@ -54,40 +196,28 @@ const createStorage = (): StorageAdapter => {
         };
     }
 
-    // Native platforms - use AsyncStorage
+    // Native platforms - use SQLite with AsyncStorage backup for widgets/rollback.
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 
     return {
         getData: async (): Promise<AppData> => {
-            let jsonValue = await AsyncStorage.getItem(DATA_KEY);
-            if (jsonValue == null) {
-                for (const legacyKey of LEGACY_DATA_KEYS) {
-                    const legacyValue = await AsyncStorage.getItem(legacyKey);
-                    if (legacyValue != null) {
-                        await AsyncStorage.setItem(DATA_KEY, legacyValue);
-                        jsonValue = legacyValue;
-                        break;
-                    }
-                }
-            }
-            if (jsonValue == null) {
-                return { tasks: [], projects: [], areas: [], settings: {} };
-            }
             try {
-                const data = JSON.parse(jsonValue) as AppData;
+                const { adapter } = await getSqliteState();
+                const data = await adapter.getData();
                 data.areas = Array.isArray(data.areas) ? data.areas : [];
                 updateAndroidWidgetFromData(data).catch((error) => {
                     console.warn('[Widgets] Failed to update Android widget from storage load', error);
                 });
                 return data;
             } catch (e) {
-                // JSON parse error - data corrupted, throw so user is notified
-                console.error('Failed to parse stored data - may be corrupted', e);
+                console.error('Failed to load stored data', e);
                 throw new Error('Data appears corrupted. Please restore from backup.');
             }
         },
         saveData: async (data: AppData): Promise<void> => {
             try {
+                const { adapter } = await getSqliteState();
+                await adapter.saveData(data);
                 const jsonValue = JSON.stringify(data);
                 await AsyncStorage.setItem(DATA_KEY, jsonValue);
                 await updateAndroidWidgetFromData(data);
