@@ -20,7 +20,7 @@ export interface TasksWidgetPayload {
 
 export function resolveWidgetLanguage(saved: string | null, setting?: string): Language {
     const candidate = setting && setting !== 'system' ? setting : saved;
-    if (candidate === 'zh' || candidate === 'es' || candidate === 'hi' || candidate === 'ar') {
+    if (candidate === 'zh' || candidate === 'es' || candidate === 'hi' || candidate === 'ar' || candidate === 'de' || candidate === 'ru' || candidate === 'ja' || candidate === 'fr' || candidate === 'pt' || candidate === 'ko' || candidate === 'it' || candidate === 'tr') {
         return candidate as Language;
     }
     return 'en';

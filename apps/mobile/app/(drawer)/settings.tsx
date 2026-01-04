@@ -37,6 +37,7 @@ import {
     getDefaultCopilotModel,
     getCopilotModelOptions,
     getModelOptions,
+    translateText,
     type AIProviderId,
     type AIReasoningEffort,
     type ExternalCalendarSubscription,
@@ -78,6 +79,14 @@ const LANGUAGES: { id: Language; native: string }[] = [
     { id: 'es', native: 'Español' },
     { id: 'hi', native: 'हिन्दी' },
     { id: 'ar', native: 'العربية' },
+    { id: 'de', native: 'Deutsch' },
+    { id: 'ru', native: 'Русский' },
+    { id: 'ja', native: '日本語' },
+    { id: 'fr', native: 'Français' },
+    { id: 'pt', native: 'Português' },
+    { id: 'ko', native: '한국어' },
+    { id: 'it', native: 'Italiano' },
+    { id: 'tr', native: 'Türkçe' },
 ];
 
 const maskCalendarUrl = (url: string): string => {
@@ -98,6 +107,8 @@ const maskCalendarUrl = (url: string): string => {
 export default function SettingsPage() {
     const { themeMode, themeStyle, setThemeMode, setThemeStyle, isDark } = useTheme();
     const { language, setLanguage, t } = useLanguage();
+    const localize = (enText: string, zhText?: string) =>
+        language === 'zh' && zhText ? zhText : translateText(enText, language);
     const { tasks, projects, areas, settings, updateSettings } = useTaskStore();
     const [isSyncing, setIsSyncing] = useState(false);
     const [currentScreen, setCurrentScreen] = useState<SettingsScreen>('main');
@@ -164,6 +175,14 @@ export default function SettingsPage() {
         es: 'es-ES',
         hi: 'hi-IN',
         ar: 'ar',
+        de: 'de-DE',
+        ru: 'ru-RU',
+        ja: 'ja-JP',
+        fr: 'fr-FR',
+        pt: 'pt-PT',
+        ko: 'ko-KR',
+        it: 'it-IT',
+        tr: 'tr-TR',
     };
     const locale = localeMap[language] ?? 'en-US';
     const toTimePickerDate = (time: string) => {
@@ -316,33 +335,33 @@ export default function SettingsPage() {
                     }
                 }
 
-                const changelog = release.body || (language === 'zh' ? '暂无更新日志' : 'No changelog available');
+                const changelog = release.body || localize('No changelog available', '暂无更新日志');
 
                 Alert.alert(
-                    language === 'zh' ? '有可用更新' : 'Update Available',
-                    `v${currentVersion} → v${latestVersion}\n\n${language === 'zh' ? '更新日志' : 'Changelog'}:\n${changelog.substring(0, 500)}${changelog.length > 500 ? '...' : ''}`,
+                    localize('Update Available', '有可用更新'),
+                    `v${currentVersion} → v${latestVersion}\n\n${localize('Changelog', '更新日志')}:\n${changelog.substring(0, 500)}${changelog.length > 500 ? '...' : ''}`,
                     [
                         {
-                            text: language === 'zh' ? '稍后' : 'Later',
+                            text: localize('Later', '稍后'),
                             style: 'cancel'
                         },
                         {
-                            text: language === 'zh' ? '下载' : 'Download',
+                            text: localize('Download', '下载'),
                             onPress: () => Linking.openURL(downloadUrl)
                         }
                     ]
                 );
             } else {
                 Alert.alert(
-                    language === 'zh' ? '已是最新' : 'Up to Date',
-                    language === 'zh' ? '您正在使用最新版本！' : 'You are using the latest version!'
+                    localize('Up to Date', '已是最新'),
+                    localize('You are using the latest version!', '您正在使用最新版本！')
                 );
             }
         } catch (error) {
             console.error('Update check failed:', error);
             Alert.alert(
-                language === 'zh' ? '错误' : 'Error',
-                language === 'zh' ? '检查更新失败' : 'Failed to check for updates'
+                localize('Error', '错误'),
+                localize('Failed to check for updates', '检查更新失败')
             );
         } finally {
             setIsCheckingUpdate(false);
@@ -362,14 +381,14 @@ export default function SettingsPage() {
                     await AsyncStorage.setItem(SYNC_BACKEND_KEY, 'file');
                     setSyncBackend('file');
                     Alert.alert(
-                        language === 'zh' ? '成功' : 'Success',
-                        language === 'zh' ? '同步文件已设置' : 'Sync file set successfully'
+                        localize('Success', '成功'),
+                        localize('Sync file set successfully', '同步文件已设置')
                     );
                 }
             }
         } catch (error) {
             console.error(error);
-            Alert.alert(language === 'zh' ? '错误' : 'Error', language === 'zh' ? '设置失败' : 'Failed to set sync path');
+            Alert.alert(localize('Error', '错误'), localize('Failed to set sync path', '设置失败'));
         }
     };
 
@@ -380,8 +399,8 @@ export default function SettingsPage() {
             if (syncBackend === 'webdav') {
                 if (!webdavUrl.trim()) {
                     Alert.alert(
-                        language === 'zh' ? '提示' : 'Notice',
-                        language === 'zh' ? '请先设置 WebDAV 地址' : 'Please set a WebDAV URL first'
+                        localize('Notice', '提示'),
+                        localize('Please set a WebDAV URL first', '请先设置 WebDAV 地址')
                     );
                     return;
                 }
@@ -394,8 +413,8 @@ export default function SettingsPage() {
             } else {
                 if (!syncPath) {
                     Alert.alert(
-                        language === 'zh' ? '提示' : 'Notice',
-                        language === 'zh' ? '请先设置同步文件' : 'Please set a sync file first'
+                        localize('Notice', '提示'),
+                        localize('Please set a sync file first', '请先设置同步文件')
                     );
                     return;
                 }
@@ -405,15 +424,15 @@ export default function SettingsPage() {
             const result = await performMobileSync(syncBackend === 'file' ? syncPath || undefined : undefined);
             if (result.success) {
                 Alert.alert(
-                    language === 'zh' ? '成功' : 'Success',
-                    language === 'zh' ? '同步完成！' : 'Sync completed!'
+                    localize('Success', '成功'),
+                    localize('Sync completed!', '同步完成！')
                 );
             } else {
                 throw new Error(result.error || 'Unknown error');
             }
         } catch (error) {
             console.error(error);
-            Alert.alert(language === 'zh' ? '错误' : 'Error', language === 'zh' ? '同步失败' : 'Sync failed');
+            Alert.alert(localize('Error', '错误'), localize('Sync failed', '同步失败'));
         } finally {
             setIsSyncing(false);
         }
@@ -425,7 +444,7 @@ export default function SettingsPage() {
             await exportData({ tasks, projects, areas, settings });
         } catch (error) {
             console.error(error);
-            Alert.alert(language === 'zh' ? '错误' : 'Error', language === 'zh' ? '导出失败' : 'Failed to export data');
+            Alert.alert(localize('Error', '错误'), localize('Failed to export data', '导出失败'));
         } finally {
             setIsSyncing(false);
         }
@@ -1107,7 +1126,7 @@ export default function SettingsPage() {
         const autoArchiveOptions = [0, 1, 3, 7, 14, 30, 60];
         const formatAutoArchiveLabel = (days: number) => {
             if (days <= 0) return t('settings.autoArchiveNever');
-            return language === 'zh' ? `${days} 天` : `${days} days`;
+            return language === 'zh' ? `${days} 天` : `${days} ${translateText('days', language)}`;
         };
 
         const handleSelectArchive = (days: number) => {
@@ -1421,7 +1440,7 @@ export default function SettingsPage() {
             const url = newCalendarUrl.trim();
             if (!url) return;
 
-            const name = (newCalendarName.trim() || (language === 'zh' ? '日历' : 'Calendar')).trim();
+            const name = (newCalendarName.trim() || localize('Calendar', '日历')).trim();
             const next: ExternalCalendarSubscription[] = [
                 ...externalCalendars,
                 { id: generateUUID(), name, url, enabled: true },
@@ -1452,12 +1471,12 @@ export default function SettingsPage() {
                 const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
                 const { events } = await fetchExternalCalendarEvents(rangeStart, rangeEnd);
                 Alert.alert(
-                    language === 'zh' ? '成功' : 'Success',
-                    language === 'zh' ? `已加载 ${events.length} 个日程` : `Loaded ${events.length} events`
+                    localize('Success', '成功'),
+                    language === 'zh' ? `已加载 ${events.length} 个日程` : translateText(`Loaded ${events.length} events`, language)
                 );
             } catch (error) {
                 console.error(error);
-                Alert.alert(language === 'zh' ? '错误' : 'Error', language === 'zh' ? '加载失败' : 'Failed to load events');
+                Alert.alert(localize('Error', '错误'), localize('Failed to load events', '加载失败'));
             }
         };
 
@@ -1474,7 +1493,7 @@ export default function SettingsPage() {
                             <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.externalCalendarName')}</Text>
                             <TextInput
                                 style={[styles.textInput, { borderColor: tc.border, color: tc.text }]}
-                                placeholder={language === 'zh' ? '可选' : 'Optional'}
+                                placeholder={localize('Optional', '可选')}
                                 placeholderTextColor={tc.secondaryText}
                                 value={newCalendarName}
                                 onChangeText={setNewCalendarName}
@@ -1510,7 +1529,7 @@ export default function SettingsPage() {
                                     onPress={handleTestFetch}
                                 >
                                     <Text style={[styles.backendOptionText, { color: tc.text }]}>
-                                        {language === 'zh' ? '测试' : 'Test'}
+                                        {localize('Test', '测试')}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -1627,31 +1646,31 @@ export default function SettingsPage() {
                             {/* Step-by-step instructions */}
                             <View style={[styles.helpBox, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
                                 <Text style={[styles.helpTitle, { color: tc.text }]}>
-                                    {language === 'zh' ? '如何同步' : 'How to Sync'}
+                                    {localize('How to Sync', '如何同步')}
                                 </Text>
                                 <Text style={[styles.helpText, { color: tc.secondaryText }]}>
                                     {language === 'zh'
                                         ? '1. 先点击"导出备份"保存文件到同步文件夹（如 Google Drive）\n2. 点击"选择文件"选中该文件\n3. 之后点击"同步"即可合并数据'
-                                        : '1. First, tap "Export Backup" and save to your sync folder (e.g., Google Drive)\n2. Tap "Select File" to choose that file\n3. Then tap "Sync" to merge data'}
+                                        : translateText('1. First, tap "Export Backup" and save to your sync folder (e.g., Google Drive)\n2. Tap "Select File" to choose that file\n3. Then tap "Sync" to merge data', language)}
                                 </Text>
                             </View>
 
                             <Text style={[styles.sectionTitle, { color: tc.text, marginTop: 16 }]}>
-                                {language === 'zh' ? '同步设置' : 'Sync Settings'}
+                                {localize('Sync Settings', '同步设置')}
                             </Text>
                             <View style={[styles.settingCard, { backgroundColor: tc.cardBg }]}>
                                 {/* Sync File Path */}
                                 <View style={styles.settingRow}>
                                     <View style={styles.settingInfo}>
                                         <Text style={[styles.settingLabel, { color: tc.text }]}>
-                                            {language === 'zh' ? '同步文件' : 'Sync File'}
+                                            {localize('Sync File', '同步文件')}
                                         </Text>
                                         <Text style={[styles.settingDescription, { color: tc.secondaryText }]} numberOfLines={1}>
-                                            {syncPath ? syncPath.split('/').pop() : (language === 'zh' ? '未设置' : 'Not set')}
+                                            {syncPath ? syncPath.split('/').pop() : localize('Not set', '未设置')}
                                         </Text>
                                     </View>
                                     <TouchableOpacity onPress={handleSetSyncPath}>
-                                        <Text style={styles.linkText}>{language === 'zh' ? '选择文件' : 'Select File'}</Text>
+                                        <Text style={styles.linkText}>{localize('Select File', '选择文件')}</Text>
                                     </TouchableOpacity>
                                 </View>
 
@@ -1663,10 +1682,10 @@ export default function SettingsPage() {
                                 >
                                     <View style={styles.settingInfo}>
                                         <Text style={[styles.settingLabel, { color: syncPath ? '#3B82F6' : tc.secondaryText }]}>
-                                            {language === 'zh' ? '同步' : 'Sync'}
+                                            {localize('Sync', '同步')}
                                         </Text>
                                         <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                            {language === 'zh' ? '读取并合并同步文件' : 'Read and merge sync file'}
+                                            {language === 'zh' ? '读取并合并同步文件' : translateText('Read and merge sync file', language)}
                                         </Text>
                                     </View>
                                     {isSyncing && <ActivityIndicator size="small" color="#3B82F6" />}
@@ -1676,18 +1695,18 @@ export default function SettingsPage() {
                                 <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
                                     <View style={styles.settingInfo}>
                                         <Text style={[styles.settingLabel, { color: tc.text }]}>
-                                            {language === 'zh' ? '上次同步' : 'Last Sync'}
+                                            {localize('Last Sync', '上次同步')}
                                         </Text>
                                         <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
                                             {settings.lastSyncAt
                                                 ? new Date(settings.lastSyncAt).toLocaleString()
-                                                : (language === 'zh' ? '从未同步' : 'Never')}
-                                            {settings.lastSyncStatus === 'error' && (language === 'zh' ? '（失败）' : ' (failed)')}
-                                            {settings.lastSyncStatus === 'conflict' && (language === 'zh' ? '（有冲突）' : ' (conflicts)')}
+                                                : localize('Never', '从未同步')}
+                                            {settings.lastSyncStatus === 'error' && localize(' (failed)', '（失败）')}
+                                            {settings.lastSyncStatus === 'conflict' && localize(' (conflicts)', '（有冲突）')}
                                         </Text>
                                         {settings.lastSyncStats && (
                                             <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                                {(language === 'zh' ? '冲突' : 'Conflicts')}: {(settings.lastSyncStats.tasks.conflicts || 0) + (settings.lastSyncStats.projects.conflicts || 0)}
+                                                {localize('Conflicts', '冲突')}: {(settings.lastSyncStats.tasks.conflicts || 0) + (settings.lastSyncStats.projects.conflicts || 0)}
                                             </Text>
                                         )}
                                         {settings.lastSyncStatus === 'error' && settings.lastSyncError && (
@@ -1757,7 +1776,7 @@ export default function SettingsPage() {
                                             [WEBDAV_USERNAME_KEY, webdavUsername],
                                             [WEBDAV_PASSWORD_KEY, webdavPassword],
                                         ]).then(() => {
-                                            Alert.alert(language === 'zh' ? '成功' : 'Success', t('settings.webdavSave'));
+                                            Alert.alert(localize('Success', '成功'), t('settings.webdavSave'));
                                         }).catch(console.error);
                                     }}
                                 >
@@ -1776,10 +1795,10 @@ export default function SettingsPage() {
                                 >
                                     <View style={styles.settingInfo}>
                                         <Text style={[styles.settingLabel, { color: webdavUrl.trim() ? tc.tint : tc.secondaryText }]}>
-                                            {language === 'zh' ? '同步' : 'Sync'}
+                                            {localize('Sync', '同步')}
                                         </Text>
                                         <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                            {language === 'zh' ? '读取并合并 WebDAV 数据' : 'Read and merge WebDAV data'}
+                                            {language === 'zh' ? '读取并合并 WebDAV 数据' : translateText('Read and merge WebDAV data', language)}
                                         </Text>
                                     </View>
                                     {isSyncing && <ActivityIndicator size="small" color={tc.tint} />}
@@ -1788,18 +1807,18 @@ export default function SettingsPage() {
                                 <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
                                     <View style={styles.settingInfo}>
                                         <Text style={[styles.settingLabel, { color: tc.text }]}>
-                                            {language === 'zh' ? '上次同步' : 'Last Sync'}
+                                            {localize('Last Sync', '上次同步')}
                                         </Text>
                                         <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
                                             {settings.lastSyncAt
                                                 ? new Date(settings.lastSyncAt).toLocaleString()
-                                                : (language === 'zh' ? '从未同步' : 'Never')}
-                                            {settings.lastSyncStatus === 'error' && (language === 'zh' ? '（失败）' : ' (failed)')}
-                                            {settings.lastSyncStatus === 'conflict' && (language === 'zh' ? '（有冲突）' : ' (conflicts)')}
+                                                : localize('Never', '从未同步')}
+                                            {settings.lastSyncStatus === 'error' && localize(' (failed)', '（失败）')}
+                                            {settings.lastSyncStatus === 'conflict' && localize(' (conflicts)', '（有冲突）')}
                                         </Text>
                                         {settings.lastSyncStats && (
                                             <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                                {(language === 'zh' ? '冲突' : 'Conflicts')}: {(settings.lastSyncStats.tasks.conflicts || 0) + (settings.lastSyncStats.projects.conflicts || 0)}
+                                                {localize('Conflicts', '冲突')}: {(settings.lastSyncStats.tasks.conflicts || 0) + (settings.lastSyncStats.projects.conflicts || 0)}
                                             </Text>
                                         )}
                                         {settings.lastSyncStatus === 'error' && settings.lastSyncError && (
@@ -1858,7 +1877,7 @@ export default function SettingsPage() {
 
                     {/* Backup Section */}
                     <Text style={[styles.sectionTitle, { color: tc.text, marginTop: 24 }]}>
-                        {language === 'zh' ? '备份' : 'Backup'}
+                        {localize('Backup', '备份')}
                     </Text>
                     <View style={[styles.settingCard, { backgroundColor: tc.cardBg }]}>
                         <TouchableOpacity
@@ -1868,10 +1887,10 @@ export default function SettingsPage() {
                         >
                             <View style={styles.settingInfo}>
                                 <Text style={[styles.settingLabel, { color: '#3B82F6' }]}>
-                                    {language === 'zh' ? '导出备份' : 'Export Backup'}
+                                    {localize('Export Backup', '导出备份')}
                                 </Text>
                                 <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                    {language === 'zh' ? '保存到同步文件夹' : 'Save to sync folder'}
+                                    {localize('Save to sync folder', '保存到同步文件夹')}
                                 </Text>
                             </View>
                         </TouchableOpacity>
@@ -1895,14 +1914,14 @@ export default function SettingsPage() {
                             </Text>
                         </View>
                         <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
-                            <Text style={[styles.settingLabel, { color: tc.text }]}>{language === 'zh' ? '许可证' : 'License'}</Text>
+                            <Text style={[styles.settingLabel, { color: tc.text }]}>{localize('License', '许可证')}</Text>
                             <Text style={[styles.settingValue, { color: tc.secondaryText }]}>MIT</Text>
                         </View>
                         <TouchableOpacity
                             style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
                             onPress={() => openLink('https://dongdongbh.tech')}
                         >
-                            <Text style={[styles.settingLabel, { color: tc.text }]}>{language === 'zh' ? '网站' : 'Website'}</Text>
+                            <Text style={[styles.settingLabel, { color: tc.text }]}>{localize('Website', '网站')}</Text>
                             <Text style={styles.linkText}>dongdongbh.tech</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -1918,13 +1937,13 @@ export default function SettingsPage() {
                             disabled={isCheckingUpdate}
                         >
                             <Text style={[styles.settingLabel, { color: tc.text }]}>
-                                {language === 'zh' ? '检查更新' : 'Check for Updates'}
+                                {localize('Check for Updates', '检查更新')}
                             </Text>
                             {isCheckingUpdate ? (
                                 <ActivityIndicator size="small" color="#3B82F6" />
                             ) : (
                                 <Text style={styles.linkText}>
-                                    {language === 'zh' ? '点击检查' : 'Tap to check'}
+                                    {localize('Tap to check', '点击检查')}
                                 </Text>
                             )}
                         </TouchableOpacity>

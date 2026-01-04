@@ -1,6 +1,13 @@
 import { Alert, View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { safeParseDate, type ExternalCalendarEvent, type ExternalCalendarSubscription, type Task, useTaskStore } from '@mindwtr/core';
+import {
+  safeParseDate,
+  translateText,
+  type ExternalCalendarEvent,
+  type ExternalCalendarSubscription,
+  type Task,
+  useTaskStore,
+} from '@mindwtr/core';
 import { useTheme } from '../../contexts/theme-context';
 import { useLanguage } from '../../contexts/language-context';
 import { Colors } from '@/constants/theme';
@@ -39,6 +46,8 @@ export function CalendarView() {
   const { tasks, updateTask, deleteTask } = useTaskStore();
   const { isDark } = useTheme();
   const { t, language } = useLanguage();
+  const localize = (enText: string, zhText?: string) =>
+    language === 'zh' && zhText ? zhText : translateText(enText, language);
   const timeEstimatesEnabled = useTaskStore((state) => state.settings?.features?.timeEstimates === true);
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -72,6 +81,14 @@ export function CalendarView() {
     es: 'es-ES',
     hi: 'hi-IN',
     ar: 'ar',
+    de: 'de-DE',
+    ru: 'ru-RU',
+    ja: 'ja-JP',
+    fr: 'fr-FR',
+    pt: 'pt-PT',
+    ko: 'ko-KR',
+    it: 'it-IT',
+    tr: 'tr-TR',
   };
   const locale = localeMap[language] ?? 'en-US';
   const monthLabel = new Date(currentYear, currentMonth, 1).toLocaleDateString(locale, {
@@ -305,8 +322,8 @@ export function CalendarView() {
     const slot = findFreeSlotForDay(selectedDate, durationMinutes, taskId);
     if (!slot) {
       Alert.alert(
-        language === 'zh' ? '没有空闲时间' : 'No free time',
-        language === 'zh' ? '这一天没有足够的空闲时间来安排该任务。' : 'There is not enough free time on this day to schedule the task.'
+        localize('No free time', '没有空闲时间'),
+        localize('There is not enough free time on this day to schedule the task.', '这一天没有足够的空闲时间来安排该任务。')
       );
       return;
     }
@@ -353,8 +370,8 @@ export function CalendarView() {
     const ok = isSlotFreeForDay(day, nextStart, durationMinutes, taskId);
     if (!ok) {
       Alert.alert(
-        language === 'zh' ? '时间冲突' : 'Time conflict',
-        language === 'zh' ? '该时间段与日程冲突，请选择空闲时间。' : 'That time overlaps with an event. Please choose a free slot.'
+        localize('Time conflict', '时间冲突'),
+        localize('That time overlaps with an event. Please choose a free slot.', '该时间段与日程冲突，请选择空闲时间。')
       );
       return;
     }
@@ -529,7 +546,7 @@ export function CalendarView() {
         <View style={[styles.dayModeHeader, { backgroundColor: tc.cardBg, borderBottomColor: tc.border }]}>
           <Pressable onPress={() => setViewMode('month')} style={styles.dayModeBack}>
             <Text style={[styles.dayModeBackText, { color: tc.text }]}>
-              ‹ {language === 'zh' ? '月' : 'Month'}
+              ‹ {localize('Month', '月')}
             </Text>
           </Pressable>
           <Text style={[styles.dayModeTitle, { color: tc.text }]} numberOfLines={1}>
@@ -884,7 +901,7 @@ export function CalendarView() {
                   </Text>
                   {isExternalLoading && (
                     <Text style={[styles.taskItemTime, { color: tc.secondaryText }]}>
-                      {language === 'zh' ? '加载中…' : 'Loading…'}
+                      {localize('Loading…', '加载中…')}
                     </Text>
                   )}
                   {externalError && (

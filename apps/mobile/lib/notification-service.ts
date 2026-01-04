@@ -19,7 +19,7 @@ let storeSubscription: (() => void) | null = null;
 let Notifications: NotificationsApi | null = null;
 
 const LANGUAGE_STORAGE_KEY = 'mindwtr-language';
-const SUPPORTED_LANGUAGES: Language[] = ['en', 'zh', 'es', 'hi', 'ar'];
+const SUPPORTED_LANGUAGES: Language[] = ['en', 'zh', 'es', 'hi', 'ar', 'de', 'ru', 'ja', 'fr', 'pt', 'ko', 'it', 'tr'];
 
 const logNotificationError = (message: string, error: unknown) => {
   console.warn(`[Notifications] ${message}`, error);

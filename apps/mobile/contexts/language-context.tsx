@@ -14,7 +14,7 @@ interface LanguageContextType {
 
 
 const LANGUAGE_STORAGE_KEY = 'mindwtr-language';
-const SUPPORTED_LANGUAGES: Language[] = ['en', 'zh', 'es', 'hi', 'ar'];
+const SUPPORTED_LANGUAGES: Language[] = ['en', 'zh', 'es', 'hi', 'ar', 'de', 'ru', 'ja', 'fr', 'pt', 'ko', 'it', 'tr'];
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 

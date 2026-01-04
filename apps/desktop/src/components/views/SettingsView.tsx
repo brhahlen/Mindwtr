@@ -19,6 +19,7 @@ import {
     getDefaultCopilotModel,
     getCopilotModelOptions,
     getModelOptions,
+    translateText,
     type AIProviderId,
     type AIReasoningEffort,
     safeFormatDate,
@@ -49,6 +50,14 @@ const LANGUAGES: { id: Language; label: string; native: string }[] = [
     { id: 'es', label: 'Spanish', native: 'Español' },
     { id: 'hi', label: 'Hindi', native: 'हिन्दी' },
     { id: 'ar', label: 'Arabic', native: 'العربية' },
+    { id: 'de', label: 'German', native: 'Deutsch' },
+    { id: 'ru', label: 'Russian', native: 'Русский' },
+    { id: 'ja', label: 'Japanese', native: '日本語' },
+    { id: 'fr', label: 'French', native: 'Français' },
+    { id: 'pt', label: 'Portuguese', native: 'Português' },
+    { id: 'ko', label: 'Korean', native: '한국어' },
+    { id: 'it', label: 'Italian', native: 'Italiano' },
+    { id: 'tr', label: 'Turkish', native: 'Türkçe' },
 ];
 
 const maskCalendarUrl = (url: string): string => {
@@ -675,12 +684,27 @@ export function SettingsView() {
     } as const;
 
     type Labels = Record<keyof typeof labels.en, string>;
+    const translateLabels = (lang: Language): Labels => {
+        const entries = Object.entries(labels.en).map(([key, value]) => [
+            key,
+            translateText(value, lang),
+        ]);
+        return Object.fromEntries(entries) as Labels;
+    };
     const labelsByLanguage: Record<Language, Labels> = {
         en: labels.en,
         zh: labels.zh,
-        es: labels.en,
-        hi: labels.en,
-        ar: labels.en,
+        es: translateLabels('es'),
+        hi: translateLabels('hi'),
+        ar: translateLabels('ar'),
+        de: translateLabels('de'),
+        ru: translateLabels('ru'),
+        ja: translateLabels('ja'),
+        fr: translateLabels('fr'),
+        pt: translateLabels('pt'),
+        ko: translateLabels('ko'),
+        it: translateLabels('it'),
+        tr: translateLabels('tr'),
     };
 
     const t = labelsByLanguage[language] ?? labels.en;
@@ -762,6 +786,14 @@ export function SettingsView() {
         es: 'es-ES',
         hi: 'hi-IN',
         ar: 'ar',
+        de: 'de-DE',
+        ru: 'ru-RU',
+        ja: 'ja-JP',
+        fr: 'fr-FR',
+        pt: 'pt-PT',
+        ko: 'ko-KR',
+        it: 'it-IT',
+        tr: 'tr-TR',
     };
     const locale = localeMap[language] ?? 'en-US';
     const weekdayOptions = useMemo(() => (
