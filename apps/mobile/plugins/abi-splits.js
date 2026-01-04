@@ -19,9 +19,15 @@ function buildAbiSplitsBlock() {
 
 function withAbiSplits(config, props = {}) {
     config = withGradleProperties(config, (config) => {
-        const architectures = Array.isArray(props.architectures) && props.architectures.length > 0
-            ? props.architectures
-            : ['arm64-v8a'];
+        const envArchs = process.env.MINDWTR_ANDROID_ARCHS;
+        const resolvedArchs = envArchs
+            ? envArchs.split(',').map((arch) => arch.trim()).filter(Boolean)
+            : [];
+        const architectures = resolvedArchs.length > 0
+            ? resolvedArchs
+            : Array.isArray(props.architectures) && props.architectures.length > 0
+                ? props.architectures
+                : ['arm64-v8a'];
         const value = architectures.join(',');
         const existing = config.modResults.find(
             (item) => item.type === 'property' && item.key === 'reactNativeArchitectures'

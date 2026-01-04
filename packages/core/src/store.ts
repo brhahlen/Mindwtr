@@ -282,11 +282,29 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
                 }))
                 .sort((a, b) => a.order - b.order);
             const areaByName = new Map<string, string>();
+            const areaIdRemap = new Map<string, string>();
+            const uniqueAreas: Area[] = [];
             allAreas.forEach((area) => {
-                if (area?.name) {
-                    areaByName.set(area.name.trim().toLowerCase(), area.id);
+                const normalizedName = typeof area?.name === 'string' ? area.name.trim().toLowerCase() : '';
+                if (!normalizedName) {
+                    uniqueAreas.push(area);
+                    return;
                 }
+                const existingId = areaByName.get(normalizedName);
+                if (existingId) {
+                    areaIdRemap.set(area.id, existingId);
+                    didAreaMigration = true;
+                    return;
+                }
+                areaByName.set(normalizedName, area.id);
+                uniqueAreas.push(area);
             });
+            allAreas = uniqueAreas
+                .map((area, index) => ({
+                    ...area,
+                    order: Number.isFinite(area.order) ? area.order : index,
+                }))
+                .sort((a, b) => a.order - b.order);
             const ensureAreaForTitle = (title: string) => {
                 const trimmed = title.trim();
                 if (!trimmed) return undefined;
@@ -303,6 +321,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             };
             const areaIdExists = (areaId?: string) => Boolean(areaId && allAreas.some((area) => area.id === areaId));
             allProjects = allProjects.map((project) => {
+                const remappedAreaId = project.areaId ? areaIdRemap.get(project.areaId) : undefined;
+                if (remappedAreaId && remappedAreaId !== project.areaId) {
+                    didAreaMigration = true;
+                    return { ...project, areaId: remappedAreaId };
+                }
                 if (areaIdExists(project.areaId)) return project;
                 const areaTitle = typeof project.areaTitle === 'string' ? project.areaTitle : '';
                 if (!areaTitle) return project;
@@ -781,9 +804,19 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     },
 
     addArea: async (name: string, initialProps?: Partial<Area>) => {
+        const trimmedName = typeof name === 'string' ? name.trim() : '';
+        if (!trimmedName) return;
         const changeAt = Date.now();
         const now = new Date().toISOString();
         const allAreas = get()._allAreas;
+        const normalized = trimmedName.toLowerCase();
+        const existing = allAreas.find((area) => area?.name?.trim().toLowerCase() === normalized);
+        if (existing) {
+            if (initialProps && Object.keys(initialProps).length > 0) {
+                await get().updateArea(existing.id, { ...initialProps });
+            }
+            return;
+        }
         const maxOrder = allAreas.reduce(
             (max, area) => Math.max(max, Number.isFinite(area.order) ? area.order : -1),
             -1
@@ -791,7 +824,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const baseOrder = Number.isFinite(initialProps?.order) ? (initialProps?.order as number) : maxOrder + 1;
         const newArea: Area = {
             id: uuidv4(),
-            name,
+            name: trimmedName,
             ...initialProps,
             order: baseOrder,
             createdAt: initialProps?.createdAt ?? now,
@@ -809,11 +842,43 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const allAreas = get()._allAreas;
         const area = allAreas.find(a => a.id === id);
         if (!area) return;
+        if (updates.name) {
+            const trimmedName = updates.name.trim();
+            if (!trimmedName) return;
+            const normalized = trimmedName.toLowerCase();
+            const existing = allAreas.find((a) => a.id !== id && a?.name?.trim().toLowerCase() === normalized);
+            if (existing) {
+                const now = new Date().toISOString();
+                const mergedArea: Area = { ...existing, ...updates, name: trimmedName, updatedAt: now };
+                const newAllAreas = allAreas
+                    .filter((a) => a.id !== id && a.id !== existing.id)
+                    .concat(mergedArea)
+                    .sort((a, b) => a.order - b.order);
+                const newAllProjects = get()._allProjects.map((project) => {
+                    if (project.areaId !== id) return project;
+                    return { ...project, areaId: existing.id, updatedAt: now };
+                });
+                const newVisibleProjects = newAllProjects.filter(p => !p.deletedAt);
+                set({
+                    areas: newAllAreas,
+                    _allAreas: newAllAreas,
+                    projects: newVisibleProjects,
+                    _allProjects: newAllProjects,
+                    lastDataChangeAt: Date.now(),
+                });
+                debouncedSave(
+                    { tasks: get()._allTasks, projects: newAllProjects, areas: newAllAreas, settings: get().settings },
+                    (msg) => set({ error: msg })
+                );
+                return;
+            }
+        }
         const changeAt = Date.now();
         const now = new Date().toISOString();
         const nextOrder = Number.isFinite(updates.order) ? (updates.order as number) : area.order;
+        const nextName = updates.name ? updates.name.trim() : area.name;
         const newAllAreas = allAreas
-            .map(a => (a.id === id ? { ...a, ...updates, order: nextOrder, updatedAt: now } : a))
+            .map(a => (a.id === id ? { ...a, ...updates, name: nextName, order: nextOrder, updatedAt: now } : a))
             .sort((a, b) => a.order - b.order);
         set({ areas: newAllAreas, _allAreas: newAllAreas, lastDataChangeAt: changeAt });
         debouncedSave(
