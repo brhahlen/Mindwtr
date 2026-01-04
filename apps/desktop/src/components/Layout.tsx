@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Calendar, Inbox, CheckSquare, Archive, Layers, Tag, CheckCircle2, HelpCircle, Folder, Settings, Target, Search, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Calendar, Inbox, CheckSquare, Archive, Layers, Tag, CheckCircle2, HelpCircle, Folder, Settings, Target, Search, ChevronsLeft, ChevronsRight, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTaskStore, safeParseDate } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
@@ -55,6 +55,7 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
         // Settings moved to footer
         { id: 'done', labelKey: 'nav.done', icon: CheckSquare },
         { id: 'archived', labelKey: 'nav.archived', icon: Archive },
+        { id: 'trash', labelKey: 'nav.trash', icon: Trash2 },
     ];
 
     return (

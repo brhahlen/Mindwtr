@@ -19,7 +19,7 @@ interface ListViewProps {
 type ProcessingStep = 'actionable' | 'twomin' | 'decide' | 'context' | 'project' | 'waiting-note';
 
 export function ListView({ title, statusFilter }: ListViewProps) {
-    const { tasks, projects, settings, updateSettings, addTask, addProject, updateTask, deleteTask, moveTask, batchMoveTasks, batchDeleteTasks, batchUpdateTasks } = useTaskStore();
+    const { tasks, projects, settings, updateSettings, addTask, addProject, updateTask, deleteTask, moveTask, batchMoveTasks, batchDeleteTasks, batchUpdateTasks, queryTasks, lastDataChangeAt } = useTaskStore();
     const { t } = useLanguage();
     const { registerTaskListScope } = useKeybindings();
     const sortBy = (settings?.taskSortBy ?? 'default') as TaskSortBy;
@@ -27,6 +27,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
     const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
     const [selectedPriorities, setSelectedPriorities] = useState<TaskPriority[]>([]);
     const [selectedTimeEstimates, setSelectedTimeEstimates] = useState<TimeEstimate[]>([]);
+    const [baseTasks, setBaseTasks] = useState<Task[]>([]);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [customContext, setCustomContext] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -151,7 +152,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         const firstTaskIds = new Set<string>();
 
         for (const project of sequentialProjects) {
-            const projectTasks = tasks
+            const projectTasks = baseTasks
                 .filter(t => t.projectId === project.id && t.status === 'next' && !t.deletedAt)
                 .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
@@ -160,11 +161,28 @@ export function ListView({ title, statusFilter }: ListViewProps) {
             }
         }
         return firstTaskIds;
-    }, [tasks, projects]);
+    }, [baseTasks, projects]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const status = statusFilter === 'all' ? undefined : statusFilter;
+        queryTasks({
+            status,
+            includeArchived: status === 'archived',
+            includeDeleted: false,
+        }).then((result) => {
+            if (!cancelled) setBaseTasks(result);
+        }).catch(() => {
+            if (!cancelled) setBaseTasks([]);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [statusFilter, queryTasks, lastDataChangeAt]);
 
     const filteredTasks = useMemo(() => {
         const now = new Date();
-        const filtered = tasks.filter(t => {
+        const filtered = baseTasks.filter(t => {
             // Always filter out soft-deleted tasks
             if (t.deletedAt) return false;
 
@@ -199,7 +217,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         });
 
         return sortTasksBy(filtered, sortBy);
-    }, [tasks, projects, statusFilter, selectedTokens, activePriorities, activeTimeEstimates, sequentialProjectFirstTasks, projectMap, sortBy]);
+    }, [baseTasks, projects, statusFilter, selectedTokens, activePriorities, activeTimeEstimates, sequentialProjectFirstTasks, projectMap, sortBy]);
 
     useEffect(() => {
         setSelectedIndex(0);

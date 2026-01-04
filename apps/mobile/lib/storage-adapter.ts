@@ -273,6 +273,42 @@ const createStorage = (): StorageAdapter => {
                 throw new Error('Failed to save data: ' + (e as Error).message);
             }
         },
+        queryTasks: async (options) => {
+            try {
+                const { adapter } = await getSqliteState();
+                if (typeof (adapter as any).queryTasks === 'function') {
+                    return (adapter as any).queryTasks(options);
+                }
+            } catch (error) {
+                console.warn('[Storage] SQLite query failed, falling back to in-memory filter', error);
+            }
+            const data = await mobileStorage.getData();
+            const statusFilter = options.status;
+            const excludeStatuses = options.excludeStatuses ?? [];
+            const includeArchived = options.includeArchived === true;
+            const includeDeleted = options.includeDeleted === true;
+            return data.tasks.filter((task) => {
+                if (!includeDeleted && task.deletedAt) return false;
+                if (!includeArchived && task.status === 'archived') return false;
+                if (statusFilter && statusFilter !== 'all' && task.status !== statusFilter) return false;
+                if (excludeStatuses.length > 0 && excludeStatuses.includes(task.status)) return false;
+                if (options.projectId && task.projectId !== options.projectId) return false;
+                return true;
+            });
+        },
+        searchAll: async (query: string) => {
+            try {
+                const { adapter } = await getSqliteState();
+                if (typeof (adapter as any).searchAll === 'function') {
+                    return (adapter as any).searchAll(query);
+                }
+            } catch (error) {
+                console.warn('[Storage] SQLite search failed, falling back to in-memory search', error);
+            }
+            const data = await mobileStorage.getData();
+            const { searchAll } = await import('@mindwtr/core');
+            return searchAll(data.tasks, data.projects, query);
+        },
     };
 };
 

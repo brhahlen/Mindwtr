@@ -1,5 +1,6 @@
 export const SQLITE_SCHEMA = `
 PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
@@ -59,6 +60,60 @@ CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   data TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version INTEGER PRIMARY KEY
+);
+
+INSERT OR IGNORE INTO schema_migrations (version) VALUES (1);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(
+  id UNINDEXED,
+  title,
+  description,
+  tags,
+  contexts,
+  content=''
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS projects_fts USING fts5(
+  id UNINDEXED,
+  title,
+  supportNotes,
+  tagIds,
+  areaTitle,
+  content=''
+);
+
+CREATE TRIGGER IF NOT EXISTS tasks_ai AFTER INSERT ON tasks BEGIN
+  INSERT INTO tasks_fts (id, title, description, tags, contexts)
+  VALUES (new.id, new.title, coalesce(new.description, ''), coalesce(new.tags, ''), coalesce(new.contexts, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS tasks_ad AFTER DELETE ON tasks BEGIN
+  DELETE FROM tasks_fts WHERE id = old.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS tasks_au AFTER UPDATE ON tasks BEGIN
+  DELETE FROM tasks_fts WHERE id = old.id;
+  INSERT INTO tasks_fts (id, title, description, tags, contexts)
+  VALUES (new.id, new.title, coalesce(new.description, ''), coalesce(new.tags, ''), coalesce(new.contexts, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS projects_ai AFTER INSERT ON projects BEGIN
+  INSERT INTO projects_fts (id, title, supportNotes, tagIds, areaTitle)
+  VALUES (new.id, new.title, coalesce(new.supportNotes, ''), coalesce(new.tagIds, ''), coalesce(new.areaTitle, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS projects_ad AFTER DELETE ON projects BEGIN
+  DELETE FROM projects_fts WHERE id = old.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS projects_au AFTER UPDATE ON projects BEGIN
+  DELETE FROM projects_fts WHERE id = old.id;
+  INSERT INTO projects_fts (id, title, supportNotes, tagIds, areaTitle)
+  VALUES (new.id, new.title, coalesce(new.supportNotes, ''), coalesce(new.tagIds, ''), coalesce(new.areaTitle, ''));
+END;
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_projectId ON tasks(projectId);

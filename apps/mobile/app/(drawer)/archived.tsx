@@ -82,7 +82,7 @@ function ArchivedTaskItem({
 }
 
 export default function ArchivedScreen() {
-    const { _allTasks, updateTask, deleteTask, highlightTaskId, setHighlightTask } = useTaskStore();
+    const { _allTasks, updateTask, purgeTask, highlightTaskId, setHighlightTask } = useTaskStore();
     const { isDark } = useTheme();
     const { t } = useLanguage();
 
@@ -119,7 +119,7 @@ export default function ArchivedScreen() {
                 {
                     text: 'Delete',
                     style: 'destructive',
-                    onPress: () => deleteTask(taskId)
+                    onPress: () => purgeTask(taskId)
                 },
             ]
         );

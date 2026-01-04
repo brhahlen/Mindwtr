@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, FileText, CheckCircle, Save } from 'lucide-react';
-import { useTaskStore, Task, Project, searchAll, generateUUID, SavedSearch } from '@mindwtr/core';
+import { useTaskStore, Task, Project, searchAll, generateUUID, SavedSearch, getStorageAdapter } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
 import { cn } from '../lib/utils';
 import { PromptModal } from './PromptModal';
@@ -15,6 +15,7 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [showSavePrompt, setShowSavePrompt] = useState(false);
     const [savePromptDefault, setSavePromptDefault] = useState('');
+    const [ftsResults, setFtsResults] = useState<{ tasks: Task[]; projects: Project[] } | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const { _allTasks, projects, settings, updateSettings, setHighlightTask } = useTaskStore();
     const { t } = useLanguage();
@@ -52,9 +53,34 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
     }, [isOpen]);
 
     const trimmedQuery = query.trim();
+    const shouldUseFts = trimmedQuery.length > 0 && !/\b\w+:/i.test(trimmedQuery);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!shouldUseFts) {
+            setFtsResults(null);
+            return;
+        }
+        const adapter = getStorageAdapter();
+        if (!adapter.searchAll) {
+            setFtsResults(null);
+            return;
+        }
+        adapter.searchAll(trimmedQuery)
+            .then((results) => {
+                if (!cancelled) setFtsResults(results);
+            })
+            .catch(() => {
+                if (!cancelled) setFtsResults(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [trimmedQuery, shouldUseFts]);
+
     const { tasks: taskResults, projects: projectResults } = trimmedQuery === ''
         ? { tasks: [] as Task[], projects: [] as Project[] }
-        : searchAll(_allTasks, projects, trimmedQuery);
+        : ftsResults ?? searchAll(_allTasks, projects, trimmedQuery);
 
     const totalResults = projectResults.length + taskResults.length;
     const results = trimmedQuery === '' ? [] : [

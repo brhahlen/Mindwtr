@@ -9,6 +9,7 @@ import { ReviewView } from './components/views/ReviewView';
 import { TutorialView } from './components/views/TutorialView';
 import { SettingsView } from './components/views/SettingsView';
 import { ArchiveView } from './components/views/ArchiveView';
+import { TrashView } from './components/views/TrashView';
 import { AgendaView } from './components/views/AgendaView';
 import { SearchView } from './components/views/SearchView';
 import { useTaskStore, flushPendingSave } from '@mindwtr/core';
@@ -190,6 +191,8 @@ function App() {
                 return <SettingsView />;
             case 'archived':
                 return <ArchiveView />;
+            case 'trash':
+                return <TrashView />;
             default:
                 return <ListView title={t('list.inbox')} statusFilter="inbox" />;
         }

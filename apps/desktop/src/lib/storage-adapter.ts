@@ -1,4 +1,4 @@
-import { StorageAdapter, AppData } from '@mindwtr/core';
+import { AppData, StorageAdapter, TaskQueryOptions } from '@mindwtr/core';
 import { invoke } from '@tauri-apps/api/core';
 
 export const tauriStorage: StorageAdapter = {
@@ -8,6 +8,11 @@ export const tauriStorage: StorageAdapter = {
     saveData: async (data: AppData): Promise<void> => {
         await invoke('save_data', { data });
     },
+    queryTasks: async (options: TaskQueryOptions) => {
+        return invoke('query_tasks', { options });
+    },
+    searchAll: async (query: string) => {
+        return invoke('search_fts', { query });
+    },
 };
-
 

@@ -1,4 +1,5 @@
 import type { AppData, Area, Project, Task } from './types';
+import type { TaskQueryOptions, SearchResults } from './storage';
 import { SQLITE_SCHEMA } from './sqlite-schema';
 
 export interface SqliteClient {
@@ -34,16 +35,31 @@ export class SqliteAdapter {
         } else {
             await this.client.run(SQLITE_SCHEMA);
         }
+        await this.ensureFtsPopulated();
     }
 
-    async getData(): Promise<AppData> {
-        await this.ensureSchema();
-        const tasksRows = await this.client.all<Record<string, unknown>>('SELECT * FROM tasks');
-        const projectsRows = await this.client.all<Record<string, unknown>>('SELECT * FROM projects');
-        const areasRows = await this.client.all<Record<string, unknown>>('SELECT * FROM areas');
-        const settingsRow = await this.client.get<Record<string, unknown>>('SELECT data FROM settings WHERE id = 1');
+    private async ensureFtsPopulated() {
+        const taskCountRow = await this.client.get<{ count?: number }>('SELECT COUNT(*) as count FROM tasks_fts');
+        const taskCount = Number(taskCountRow?.count ?? 0);
+        if (taskCount === 0) {
+            await this.client.run(
+                `INSERT INTO tasks_fts (id, title, description, tags, contexts)
+                 SELECT id, title, coalesce(description, ''), coalesce(tags, ''), coalesce(contexts, '') FROM tasks`
+            );
+        }
 
-        const tasks: Task[] = tasksRows.map((row) => ({
+        const projectCountRow = await this.client.get<{ count?: number }>('SELECT COUNT(*) as count FROM projects_fts');
+        const projectCount = Number(projectCountRow?.count ?? 0);
+        if (projectCount === 0) {
+            await this.client.run(
+                `INSERT INTO projects_fts (id, title, supportNotes, tagIds, areaTitle)
+                 SELECT id, title, coalesce(supportNotes, ''), coalesce(tagIds, ''), coalesce(areaTitle, '') FROM projects`
+            );
+        }
+    }
+
+    private mapTaskRow(row: Record<string, unknown>): Task {
+        return {
             id: String(row.id),
             title: String(row.title ?? ''),
             status: row.status as Task['status'],
@@ -67,9 +83,11 @@ export class SqliteAdapter {
             createdAt: String(row.createdAt ?? ''),
             updatedAt: String(row.updatedAt ?? ''),
             deletedAt: row.deletedAt as string | undefined,
-        }));
+        };
+    }
 
-        const projects: Project[] = projectsRows.map((row) => ({
+    private mapProjectRow(row: Record<string, unknown>): Project {
+        return {
             id: String(row.id),
             title: String(row.title ?? ''),
             status: row.status as Project['status'],
@@ -85,7 +103,18 @@ export class SqliteAdapter {
             createdAt: String(row.createdAt ?? ''),
             updatedAt: String(row.updatedAt ?? ''),
             deletedAt: row.deletedAt as string | undefined,
-        }));
+        };
+    }
+
+    async getData(): Promise<AppData> {
+        await this.ensureSchema();
+        const tasksRows = await this.client.all<Record<string, unknown>>('SELECT * FROM tasks');
+        const projectsRows = await this.client.all<Record<string, unknown>>('SELECT * FROM projects');
+        const areasRows = await this.client.all<Record<string, unknown>>('SELECT * FROM areas');
+        const settingsRow = await this.client.get<Record<string, unknown>>('SELECT data FROM settings WHERE id = 1');
+
+        const tasks: Task[] = tasksRows.map((row) => this.mapTaskRow(row));
+        const projects: Project[] = projectsRows.map((row) => this.mapProjectRow(row));
 
         const areas: Area[] = areasRows.map((row) => ({
             id: String(row.id),
@@ -100,6 +129,66 @@ export class SqliteAdapter {
         const settings = settingsRow?.data ? fromJson<AppData['settings']>(settingsRow.data, {}) : {};
 
         return { tasks, projects, areas, settings };
+    }
+
+    async queryTasks(options: TaskQueryOptions): Promise<Task[]> {
+        await this.ensureSchema();
+        const where: string[] = [];
+        const params: unknown[] = [];
+        const includeDeleted = options.includeDeleted === true;
+        const includeArchived = options.includeArchived === true;
+
+        if (!includeDeleted) {
+            where.push('deletedAt IS NULL');
+        }
+        if (!includeArchived) {
+            where.push("status != 'archived'");
+        }
+        if (options.status && options.status !== 'all') {
+            where.push('status = ?');
+            params.push(options.status);
+        }
+        if (options.excludeStatuses && options.excludeStatuses.length > 0) {
+            where.push(`status NOT IN (${options.excludeStatuses.map(() => '?').join(', ')})`);
+            params.push(...options.excludeStatuses);
+        }
+        if (options.projectId) {
+            where.push('projectId = ?');
+            params.push(options.projectId);
+        }
+
+        const sql = `SELECT * FROM tasks ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`;
+        const rows = await this.client.all<Record<string, unknown>>(sql, params);
+        return rows.map((row) => this.mapTaskRow(row));
+    }
+
+    async searchAll(query: string): Promise<SearchResults> {
+        await this.ensureSchema();
+        const cleaned = query
+            .replace(/[^\p{L}\p{N}#@]+/gu, ' ')
+            .trim();
+        if (!cleaned) {
+            return { tasks: [], projects: [] };
+        }
+        const tokens = cleaned.split(/\s+/).filter(Boolean);
+        const ftsQuery = tokens.map((token) => `${token}*`).join(' ');
+
+        try {
+            const taskRows = await this.client.all<Record<string, unknown>>(
+                `SELECT t.* FROM tasks_fts f JOIN tasks t ON f.id = t.id WHERE tasks_fts MATCH ? AND t.deletedAt IS NULL`,
+                [ftsQuery]
+            );
+            const projectRows = await this.client.all<Record<string, unknown>>(
+                `SELECT p.* FROM projects_fts f JOIN projects p ON f.id = p.id WHERE projects_fts MATCH ? AND p.deletedAt IS NULL`,
+                [ftsQuery]
+            );
+            return {
+                tasks: taskRows.map((row) => this.mapTaskRow(row)),
+                projects: projectRows.map((row) => this.mapProjectRow(row)),
+            };
+        } catch {
+            return { tasks: [], projects: [] };
+        }
     }
 
     async saveData(data: AppData): Promise<void> {

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { generateUUID as uuidv4 } from './uuid';
 import { Task, TaskStatus, AppData, Project, Area } from './types';
-import { StorageAdapter, noopStorage } from './storage';
+import { StorageAdapter, TaskQueryOptions, noopStorage } from './storage';
 import { createNextRecurringTask } from './recurrence';
 import { safeParseDate } from './date';
 import { normalizeTaskForLoad } from './task-status';
@@ -63,6 +63,8 @@ export const setStorageAdapter = (adapter: StorageAdapter) => {
     storage = adapter;
 };
 
+export const getStorageAdapter = () => storage;
+
 /**
  * Core application state interface.
  * 
@@ -96,6 +98,10 @@ interface TaskStore {
     updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
     /** Soft-delete a task */
     deleteTask: (id: string) => Promise<void>;
+    /** Restore a soft-deleted task */
+    restoreTask: (id: string) => Promise<void>;
+    /** Permanently remove a task from storage */
+    purgeTask: (id: string) => Promise<void>;
     /** Duplicate a task (useful for reusable lists/templates) */
     duplicateTask: (id: string, asNextAction?: boolean) => Promise<void>;
     /** Reset checklist items to unchecked */
@@ -108,6 +114,8 @@ interface TaskStore {
     batchMoveTasks: (ids: string[], newStatus: TaskStatus) => Promise<void>;
     /** Batch soft-delete tasks */
     batchDeleteTasks: (ids: string[]) => Promise<void>;
+    /** Query tasks using storage adapter when available */
+    queryTasks: (options: TaskQueryOptions) => Promise<Task[]>;
 
     // Project Actions
     /** Add a new project */
@@ -416,6 +424,44 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     },
 
     /**
+     * Restore a soft-deleted task (returns to Inbox).
+     */
+    restoreTask: async (id: string) => {
+        const changeAt = Date.now();
+        const now = new Date().toISOString();
+        const newAllTasks = get()._allTasks.map((task) =>
+            task.id === id
+                ? {
+                    ...task,
+                    deletedAt: undefined,
+                    status: task.status === 'archived' ? 'inbox' : task.status,
+                    updatedAt: now,
+                }
+                : task
+        );
+        const newVisibleTasks = newAllTasks.filter((task) => !task.deletedAt && task.status !== 'archived');
+        set({ tasks: newVisibleTasks, _allTasks: newAllTasks, lastDataChangeAt: changeAt });
+        debouncedSave(
+            { tasks: newAllTasks, projects: get()._allProjects, areas: get()._allAreas, settings: get().settings },
+            (msg) => set({ error: msg })
+        );
+    },
+
+    /**
+     * Permanently delete a task (removes from storage).
+     */
+    purgeTask: async (id: string) => {
+        const changeAt = Date.now();
+        const newAllTasks = get()._allTasks.filter((task) => task.id !== id);
+        const newVisibleTasks = newAllTasks.filter((task) => !task.deletedAt && task.status !== 'archived');
+        set({ tasks: newVisibleTasks, _allTasks: newAllTasks, lastDataChangeAt: changeAt });
+        debouncedSave(
+            { tasks: newAllTasks, projects: get()._allProjects, areas: get()._allAreas, settings: get().settings },
+            (msg) => set({ error: msg })
+        );
+    },
+
+    /**
      * Duplicate a task for reusable lists/templates.
      */
     duplicateTask: async (id: string, asNextAction?: boolean) => {
@@ -555,6 +601,25 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             { tasks: newAllTasks, projects: get()._allProjects, areas: get()._allAreas, settings: get().settings },
             (msg) => set({ error: msg })
         );
+    },
+
+    queryTasks: async (options: TaskQueryOptions) => {
+        if (storage.queryTasks) {
+            return storage.queryTasks(options);
+        }
+        const tasks = get()._allTasks;
+        const statusFilter = options.status;
+        const excludeStatuses = options.excludeStatuses ?? [];
+        const includeArchived = options.includeArchived === true;
+        const includeDeleted = options.includeDeleted === true;
+        return tasks.filter((task) => {
+            if (!includeDeleted && task.deletedAt) return false;
+            if (!includeArchived && task.status === 'archived') return false;
+            if (statusFilter && statusFilter !== 'all' && task.status !== statusFilter) return false;
+            if (excludeStatuses.length > 0 && excludeStatuses.includes(task.status)) return false;
+            if (options.projectId && task.projectId !== options.projectId) return false;
+            return true;
+        });
     },
 
     /**

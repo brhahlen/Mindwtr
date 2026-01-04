@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
-import { useTaskStore, Task, Project, searchAll, generateUUID, SavedSearch } from '@mindwtr/core';
+import { useTaskStore, Task, Project, searchAll, generateUUID, SavedSearch, getStorageAdapter } from '@mindwtr/core';
 import { useTheme } from '../contexts/theme-context';
 import { useLanguage } from '../contexts/language-context';
 import { Colors } from '@/constants/theme';
@@ -14,7 +14,8 @@ export default function SearchScreen() {
     const { isDark } = useTheme();
     const { t } = useLanguage();
     const router = useRouter();
-    const [query, setQuery] = useState('');
+  const [query, setQuery] = useState('');
+  const [ftsResults, setFtsResults] = useState<{ tasks: Task[]; projects: Project[] } | null>(null);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [saveName, setSaveName] = useState('');
     const inputRef = useRef<TextInput>(null);
@@ -34,10 +35,35 @@ export default function SearchScreen() {
         tint: PRIMARY_TINT,
     };
 
-    const trimmedQuery = query.trim();
-    const { tasks: taskResults, projects: projectResults } = trimmedQuery === ''
-        ? { tasks: [] as Task[], projects: [] as Project[] }
-        : searchAll(_allTasks, projects, trimmedQuery);
+  const trimmedQuery = query.trim();
+  const shouldUseFts = trimmedQuery.length > 0 && !/\b\w+:/i.test(trimmedQuery);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!shouldUseFts) {
+      setFtsResults(null);
+      return;
+    }
+    const adapter = getStorageAdapter();
+    if (!adapter.searchAll) {
+      setFtsResults(null);
+      return;
+    }
+    adapter.searchAll(trimmedQuery)
+      .then((results) => {
+        if (!cancelled) setFtsResults(results);
+      })
+      .catch(() => {
+        if (!cancelled) setFtsResults(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trimmedQuery, shouldUseFts]);
+
+  const { tasks: taskResults, projects: projectResults } = trimmedQuery === ''
+    ? { tasks: [] as Task[], projects: [] as Project[] }
+    : ftsResults ?? searchAll(_allTasks, projects, trimmedQuery);
     const totalResults = projectResults.length + taskResults.length;
     const results = trimmedQuery === '' ? [] : [
         ...projectResults.map(p => ({ type: 'project' as const, item: p })),

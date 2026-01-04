@@ -20,6 +20,7 @@ const en: Record<string, string> = {
         'nav.settings': 'Settings',
         'nav.done': 'Done',
         'nav.archived': 'Archived',
+        'nav.trash': 'Trash',
         'nav.addTask': 'Add Task',
 
         // Quick Add
@@ -709,6 +710,16 @@ const en: Record<string, string> = {
         'archived.deletePermanently': 'Delete Permanently',
         'archived.empty': 'No archived tasks',
         'archived.emptyHint': 'Tasks you archive will appear here',
+        'trash.title': 'Trash',
+        'trash.searchPlaceholder': 'Search trashed tasks...',
+        'trash.noTasksFound': 'No trashed tasks found.',
+        'trash.restoreToInbox': 'Restore to Inbox',
+        'trash.deletePermanently': 'Delete Permanently',
+        'trash.empty': 'Trash is empty',
+        'trash.emptyHint': 'Deleted tasks will appear here',
+        'trash.deletedAt': 'Deleted',
+        'trash.deleteConfirm': 'Delete permanently?',
+        'trash.deleteConfirmBody': 'This action cannot be undone.',
         'contexts.search': 'Search contexts...',
 };
 
@@ -732,6 +743,7 @@ const zh: Record<string, string> = {
         'nav.settings': '设置',
         'nav.done': '已完成',
         'nav.archived': '归档',
+        'nav.trash': '垃圾桶',
         'nav.addTask': '添加任务',
 
         // Quick Add
@@ -1421,6 +1433,16 @@ const zh: Record<string, string> = {
         'archived.deletePermanently': '永久删除',
         'archived.empty': '没有归档的任务',
         'archived.emptyHint': '你归档的任务将会显示在这里',
+        'trash.title': '垃圾桶',
+        'trash.searchPlaceholder': '搜索已删除任务...',
+        'trash.noTasksFound': '未找到已删除任务。',
+        'trash.restoreToInbox': '恢复到收集箱',
+        'trash.deletePermanently': '永久删除',
+        'trash.empty': '垃圾桶为空',
+        'trash.emptyHint': '已删除的任务将显示在这里',
+        'trash.deletedAt': '删除于',
+        'trash.deleteConfirm': '永久删除？',
+        'trash.deleteConfirmBody': '此操作无法撤销。',
         'contexts.search': '搜索情境...',
 };
 

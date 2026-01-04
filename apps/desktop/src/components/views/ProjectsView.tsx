@@ -18,7 +18,7 @@ function toDateTimeLocalValue(dateStr: string | undefined): string {
 }
 
 export function ProjectsView() {
-    const { projects, tasks, areas, addArea, updateArea, deleteArea, addProject, updateProject, deleteProject, addTask, toggleProjectFocus } = useTaskStore();
+    const { projects, tasks, areas, addArea, updateArea, deleteArea, addProject, updateProject, deleteProject, addTask, toggleProjectFocus, queryTasks, lastDataChangeAt } = useTaskStore();
     const { t } = useLanguage();
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -176,17 +176,39 @@ export function ProjectsView() {
     useEffect(() => {
         setEditProjectTitle(selectedProject?.title ?? '');
     }, [selectedProject?.id, selectedProject?.title]);
-    const projectTasks = selectedProjectId
-        ? tasks.filter(t => t.projectId === selectedProjectId && t.status !== 'done' && !t.deletedAt)
-        : [];
+    const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+    const [projectAllTasks, setProjectAllTasks] = useState<Task[]>([]);
+    useEffect(() => {
+        if (!selectedProjectId) {
+            setProjectTasks([]);
+            setProjectAllTasks([]);
+            return;
+        }
+        let cancelled = false;
+        queryTasks({
+            projectId: selectedProjectId,
+            includeDeleted: false,
+            includeArchived: true,
+        }).then((result) => {
+            if (cancelled) return;
+            setProjectAllTasks(result);
+            setProjectTasks(result.filter((task) => task.status !== 'done'));
+        }).catch(() => {
+            if (cancelled) return;
+            setProjectAllTasks([]);
+            setProjectTasks([]);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedProjectId, queryTasks, lastDataChangeAt]);
     const visibleAttachments = (selectedProject?.attachments || []).filter((a) => !a.deletedAt);
     const projectProgress = useMemo(() => {
         if (!selectedProjectId) return null;
-        const projectItems = tasks.filter((task) => task.projectId === selectedProjectId && !task.deletedAt);
-        const doneCount = projectItems.filter((task) => task.status === 'done').length;
-        const remainingCount = projectItems.length - doneCount;
-        return { doneCount, remainingCount, total: projectItems.length };
-    }, [tasks, selectedProjectId]);
+        const doneCount = projectAllTasks.filter((task) => task.status === 'done').length;
+        const remainingCount = projectAllTasks.length - doneCount;
+        return { doneCount, remainingCount, total: projectAllTasks.length };
+    }, [projectAllTasks, selectedProjectId]);
     const allContexts = useMemo(() => {
         const taskContexts = tasks.flatMap((task) => task.contexts || []);
         return Array.from(new Set([...PRESET_CONTEXTS, ...taskContexts])).sort();
