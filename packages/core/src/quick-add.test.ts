@@ -54,4 +54,24 @@ describe('quick-add', () => {
         expect(result.props.projectId).toBeUndefined();
         expect(result.projectTitle).toBe('NewProject');
     });
+
+    it('captures multi-word project titles', () => {
+        const now = new Date('2025-01-01T10:00:00Z');
+        const projects = [
+            {
+                id: 'p1',
+                title: 'Project Name',
+                status: 'active',
+                color: '#000000',
+                tagIds: [],
+                createdAt: now.toISOString(),
+                updatedAt: now.toISOString(),
+            },
+        ];
+
+        const result = parseQuickAdd('Plan roadmap +Project Name /next', projects as any, now);
+        expect(result.title).toBe('Plan roadmap');
+        expect(result.props.projectId).toBe('p1');
+        expect(result.projectTitle).toBeUndefined();
+    });
 });

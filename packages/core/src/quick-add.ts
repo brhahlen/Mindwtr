@@ -155,9 +155,9 @@ export function parseQuickAdd(input: string, projects?: Project[], now: Date = n
         }
         working = stripToken(working, projectIdMatch[0]);
     } else {
-        const plusMatch = working.match(/\+([^\s/]+)/);
+        const plusMatch = working.match(/(?:^|\s)\+([^\s/]+(?:\s+(?![@#+/])[^/\s]+)*)/);
         if (plusMatch) {
-            const rawProject = plusMatch[1] || '';
+            const rawProject = (plusMatch[1] || '').replace(/\s+/g, ' ').trim();
             if (!rawProject) {
                 working = stripToken(working, plusMatch[0]);
                 return { title: working, props: {} };

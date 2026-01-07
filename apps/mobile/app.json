@@ -20,7 +20,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "versionCode": 2,
+      "versionCode": 4,
       "package": "tech.dongdongbh.mindwtr",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
