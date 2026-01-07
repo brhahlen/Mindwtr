@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Calendar, Inbox, CheckSquare, Archive, Layers, Tag, CheckCircle2, HelpCircle, Folder, Settings, Target, Search, ChevronsLeft, ChevronsRight, Trash2 } from 'lucide-react';
+import { Calendar, Inbox, CheckSquare, Archive, Layers, Tag, CheckCircle2, HelpCircle, Folder, Settings, Target, Search, ChevronsLeft, ChevronsRight, Trash2, PauseCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTaskStore, safeParseDate } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
@@ -47,7 +47,7 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
         { id: 'projects', labelKey: 'nav.projects', icon: Folder },
         { id: 'contexts', labelKey: 'nav.contexts', icon: Tag, path: 'contexts' },
         { id: 'next', labelKey: 'nav.next', icon: Layers, count: nextCount },
-        { id: 'waiting', labelKey: 'nav.waiting', icon: Archive },
+        { id: 'waiting', labelKey: 'nav.waiting', icon: PauseCircle },
         { id: 'someday', labelKey: 'nav.someday', icon: Archive },
         { id: 'calendar', labelKey: 'nav.calendar', icon: Calendar },
         { id: 'review', labelKey: 'nav.review', icon: CheckCircle2, path: 'review' },
