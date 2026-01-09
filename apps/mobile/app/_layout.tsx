@@ -49,6 +49,8 @@ function RootLayoutContent() {
   const syncCompletedVersion = useRef(0);
   const isActive = useRef(true);
   const loadAttempts = useRef(0);
+  const lastSyncErrorShown = useRef<string | null>(null);
+  const lastSyncErrorAt = useRef(0);
 
   const runSync = (minIntervalMs = 5_000) => {
     if (!isActive.current) return;
@@ -62,7 +64,16 @@ function RootLayoutContent() {
 
     syncInFlight.current = (async () => {
       await flushPendingSave().catch(console.error);
-      await performMobileSync().catch(console.error);
+      const result = await performMobileSync().catch((error) => ({ success: false, error: String(error) }));
+      if (!result.success && result.error) {
+        const nowMs = Date.now();
+        const shouldShow = result.error !== lastSyncErrorShown.current && nowMs - lastSyncErrorAt.current > 10 * 60 * 1000;
+        if (shouldShow) {
+          lastSyncErrorShown.current = result.error;
+          lastSyncErrorAt.current = nowMs;
+          Alert.alert('Sync failed', result.error);
+        }
+      }
     })().finally(() => {
       syncInFlight.current = null;
       syncCompletedVersion.current = targetVersion;
