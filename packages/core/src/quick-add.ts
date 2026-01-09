@@ -93,7 +93,7 @@ function parseNaturalDate(raw: string, now: Date): Date | null {
     if (time) {
         base = set(base, { hours: time.hour, minutes: time.minute, seconds: 0, milliseconds: 0 });
     } else if (!raw.includes('T')) {
-        base = set(base, { hours: 9, minutes: 0, seconds: 0, milliseconds: 0 });
+        base = set(base, { hours: now.getHours(), minutes: now.getMinutes(), seconds: 0, milliseconds: 0 });
     }
 
     return base;
