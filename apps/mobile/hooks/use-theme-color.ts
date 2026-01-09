@@ -11,11 +11,17 @@ export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
-  const { colorScheme, themeStyle, themePreset } = useTheme();
+  const { colorScheme, themeStyle, themePreset, themeMode } = useTheme();
   const colorFromProps = props[colorScheme];
 
   const defaultPalette = colorScheme === 'dark' ? Colors.dark : Colors.light;
-  const materialPalette = colorScheme === 'dark' ? Material3.dark : Material3.light;
+  const materialPalette = themeMode === 'material3-light'
+    ? Material3.light
+    : themeMode === 'material3-dark'
+      ? Material3.dark
+      : colorScheme === 'dark'
+        ? Material3.dark
+        : Material3.light;
   const presetPalette = themePreset !== 'default' ? THEME_PRESETS[themePreset] : null;
 
   const mapColors = (): Record<keyof typeof Colors.light, string> => {

@@ -2,19 +2,20 @@
 import { Stack } from 'expo-router';
 
 import { useLanguage } from '../../contexts/language-context';
-import { useTheme } from '../../contexts/theme-context';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export default function AppLayout() {
-  const { isDark } = useTheme();
+  const tc = useThemeColors();
   const { t } = useLanguage();
 
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: isDark ? '#1F2937' : '#FFFFFF' },
-        headerTintColor: isDark ? '#F9FAFB' : '#111827',
+        headerStyle: { backgroundColor: tc.cardBg },
+        headerTintColor: tc.text,
         headerTitleAlign: 'center',
         headerShadowVisible: false,
+        headerShadowColor: tc.border,
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

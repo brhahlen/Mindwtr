@@ -108,7 +108,7 @@ const maskCalendarUrl = (url: string): string => {
 };
 
 export default function SettingsPage() {
-    const { themeMode, themeStyle, setThemeMode, setThemeStyle } = useTheme();
+    const { themeMode, setThemeMode } = useTheme();
     const { language, setLanguage, t } = useLanguage();
     const localize = (enText: string, zhText?: string) =>
         language === 'zh' && zhText ? zhText : translateText(enText, language);
@@ -298,6 +298,8 @@ export default function SettingsPage() {
         { value: 'system', label: t('settings.system') },
         { value: 'light', label: t('settings.light') },
         { value: 'dark', label: t('settings.dark') },
+        { value: 'material3-light', label: t('settings.material3Light') },
+        { value: 'material3-dark', label: t('settings.material3Dark') },
         { value: 'eink', label: t('settings.eink') },
         { value: 'nord', label: t('settings.nord') },
         { value: 'sepia', label: t('settings.sepia') },
@@ -742,21 +744,6 @@ export default function SettingsPage() {
                             </View>
                             <Text style={{ color: tc.secondaryText, fontSize: 18 }}>▾</Text>
                         </TouchableOpacity>
-                        {Platform.OS === 'android' && (themeMode === 'system' || themeMode === 'light' || themeMode === 'dark') && (
-                            <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
-                                <View style={styles.settingInfo}>
-                                    <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.material3Theme')}</Text>
-                                    <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                        {t('settings.material3ThemeDesc')}
-                                    </Text>
-                                </View>
-                                <Switch
-                                    value={themeStyle === 'material3'}
-                                    onValueChange={(value) => setThemeStyle(value ? 'material3' : 'default')}
-                                    trackColor={{ false: '#767577', true: '#3B82F6' }}
-                                />
-                            </View>
-                        )}
                     </View>
                     <Modal
                         transparent

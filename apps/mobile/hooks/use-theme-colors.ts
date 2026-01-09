@@ -19,7 +19,7 @@ export interface ThemeColors {
 }
 
 export function useThemeColors() {
-    const { isDark, themeStyle, themePreset } = useTheme();
+    const { isDark, themeStyle, themePreset, themeMode } = useTheme();
 
     if (themePreset !== 'default') {
         return THEME_PRESETS[themePreset];
@@ -28,7 +28,13 @@ export function useThemeColors() {
     const useMaterial3 = themeStyle === 'material3';
 
     if (useMaterial3) {
-        const palette = isDark ? Material3.dark : Material3.light;
+        const palette = themeMode === 'material3-light'
+            ? Material3.light
+            : themeMode === 'material3-dark'
+                ? Material3.dark
+                : isDark
+                    ? Material3.dark
+                    : Material3.light;
         return {
             bg: palette.background,
             cardBg: palette.surfaceContainer,

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 
-type ThemeMode = 'system' | 'light' | 'dark' | 'eink' | 'nord' | 'sepia' | 'oled';
+type ThemeMode = 'system' | 'light' | 'dark' | 'material3-light' | 'material3-dark' | 'eink' | 'nord' | 'sepia' | 'oled';
 type ThemePreset = 'default' | 'eink' | 'nord' | 'sepia' | 'oled';
 type ThemeStyle = 'default' | 'material3';
 type ColorScheme = 'light' | 'dark';
@@ -37,9 +37,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         'default';
 
     const resolvedMode: ColorScheme | 'system' =
-        themeMode === 'nord' || themeMode === 'oled' ? 'dark'
-            : themeMode === 'eink' || themeMode === 'sepia' ? 'light'
-                : themeMode;
+        themeMode === 'material3-light'
+            ? 'light'
+            : themeMode === 'material3-dark'
+                ? 'dark'
+                : themeMode === 'nord' || themeMode === 'oled'
+                    ? 'dark'
+                    : themeMode === 'eink' || themeMode === 'sepia'
+                        ? 'light'
+                        : themeMode;
 
     // Determine actual color scheme based on mode and system
     const colorScheme: ColorScheme = resolvedMode === 'system' ? systemColorScheme : resolvedMode;
@@ -58,7 +64,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             if (savedThemeMode) {
                 setThemeModeState(savedThemeMode as ThemeMode);
             }
-            if (savedThemeStyle) {
+            if (savedThemeMode === 'material3-light' || savedThemeMode === 'material3-dark') {
+                setThemeStyleState('material3');
+            } else if (savedThemeStyle) {
                 setThemeStyleState(savedThemeStyle as ThemeStyle);
             }
         } catch (e) {
@@ -72,6 +80,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         try {
             await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
             setThemeModeState(mode);
+            if (mode === 'material3-light' || mode === 'material3-dark') {
+                await AsyncStorage.setItem(THEME_STYLE_STORAGE_KEY, 'material3');
+                setThemeStyleState('material3');
+            } else {
+                await AsyncStorage.setItem(THEME_STYLE_STORAGE_KEY, 'default');
+                setThemeStyleState('default');
+            }
         } catch (e) {
             console.error('Failed to save theme preference:', e);
         }
