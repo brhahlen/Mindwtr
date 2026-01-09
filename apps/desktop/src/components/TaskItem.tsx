@@ -1,6 +1,4 @@
 import { useMemo, useState, memo, useEffect, useRef, useCallback } from 'react';
-
-import { Check, Plus, Paperclip, Link2, Trash2 } from 'lucide-react';
 import {
     useTaskStore,
     Attachment,
@@ -29,13 +27,14 @@ import {
 import { cn } from '../lib/utils';
 import { PromptModal } from './PromptModal';
 import { useLanguage } from '../contexts/language-context';
-import { Markdown } from './Markdown';
 import { isTauriRuntime } from '../lib/runtime';
 import { normalizeAttachmentInput } from '../lib/attachment-utils';
 import { buildAIConfig, buildCopilotConfig, loadAIKey } from '../lib/ai-config';
-import { WeekdaySelector } from './Task/TaskForm/WeekdaySelector';
 import { TaskItemEditor } from './Task/TaskItemEditor';
 import { TaskItemDisplay } from './Task/TaskItemDisplay';
+import { TaskItemFieldRenderer } from './Task/TaskItemFieldRenderer';
+import { TaskItemRecurrenceModal } from './Task/TaskItemRecurrenceModal';
+import { WEEKDAY_FULL_LABELS, WEEKDAY_ORDER } from './Task/recurrence-constants';
 
 const DEFAULT_TASK_EDITOR_ORDER: TaskEditorFieldId[] = [
     'status',
@@ -64,25 +63,6 @@ const DEFAULT_TASK_EDITOR_HIDDEN: TaskEditorFieldId[] = [
     'attachments',
     'checklist',
 ];
-const WEEKDAY_ORDER: RecurrenceWeekday[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-const WEEKDAY_LABELS: Array<{ id: RecurrenceWeekday; label: string }> = [
-    { id: 'SU', label: 'Sun' },
-    { id: 'MO', label: 'Mon' },
-    { id: 'TU', label: 'Tue' },
-    { id: 'WE', label: 'Wed' },
-    { id: 'TH', label: 'Thu' },
-    { id: 'FR', label: 'Fri' },
-    { id: 'SA', label: 'Sat' },
-];
-const WEEKDAY_FULL_LABELS: Record<RecurrenceWeekday, string> = {
-    SU: 'Sunday',
-    MO: 'Monday',
-    TU: 'Tuesday',
-    WE: 'Wednesday',
-    TH: 'Thursday',
-    FR: 'Friday',
-    SA: 'Saturday',
-};
 
 // Convert stored ISO or datetime-local strings into datetime-local input values.
 function toDateTimeLocalValue(dateStr: string | undefined): string {
@@ -385,442 +365,51 @@ export const TaskItem = memo(function TaskItem({
         return editorFieldIds.filter((fieldId) => !hiddenSet.has(fieldId) || hasValue(fieldId));
     }, [editorFieldIds, hasValue, hiddenSet, showDetails]);
 
-    const renderField = (fieldId: TaskEditorFieldId) => {
-        switch (fieldId) {
-            case 'description':
-                return (
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.descriptionLabel')}</label>
-                            <button
-                                type="button"
-                                onClick={() => setShowDescriptionPreview((v) => !v)}
-                                className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors text-muted-foreground"
-                            >
-                                {showDescriptionPreview ? t('markdown.edit') : t('markdown.preview')}
-                            </button>
-                        </div>
-                        {showDescriptionPreview ? (
-                            <div className="text-xs bg-muted/30 border border-border rounded px-2 py-2">
-                                <Markdown markdown={editDescription || ''} />
-                            </div>
-                        ) : (
-                            <textarea
-                                aria-label="Task description"
-                                value={editDescription}
-                                onChange={(e) => {
-                                    setEditDescription(e.target.value);
-                                    resetCopilotDraft();
-                                }}
-                                className="text-xs bg-muted/50 border border-border rounded px-2 py-1 min-h-[60px] resize-y"
-                                placeholder={t('taskEdit.descriptionPlaceholder')}
-                            />
-                        )}
-                    </div>
-                );
-            case 'attachments':
-                return (
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs text-muted-foreground font-medium">{t('attachments.title')}</label>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={addFileAttachment}
-                                    className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors flex items-center gap-1"
-                                >
-                                    <Paperclip className="w-3 h-3" />
-                                    {t('attachments.addFile')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={addLinkAttachment}
-                                    className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors flex items-center gap-1"
-                                >
-                                    <Link2 className="w-3 h-3" />
-                                    {t('attachments.addLink')}
-                                </button>
-                            </div>
-                        </div>
-                        {attachmentError && (
-                            <div className="text-xs text-red-400">{attachmentError}</div>
-                        )}
-                        {visibleEditAttachments.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">{t('common.none')}</p>
-                        ) : (
-                            <div className="space-y-1">
-                                {visibleEditAttachments.map((attachment) => (
-                                    <div key={attachment.id} className="flex items-center justify-between gap-2 text-xs">
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                openAttachment(attachment);
-                                            }}
-                                            className="truncate text-primary hover:underline"
-                                            title={attachment.title}
-                                        >
-                                            {attachment.title}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeAttachment(attachment.id)}
-                                            className="text-muted-foreground hover:text-foreground"
-                                        >
-                                            {t('attachments.remove')}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                );
-            case 'startTime':
-                return (
-                    <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.startDateLabel')}</label>
-                        <input
-                            type="datetime-local"
-                            aria-label="Start time"
-                            value={editStartTime}
-                            onChange={(e) => setEditStartTime(e.target.value)}
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                        />
-                    </div>
-                );
-            case 'reviewAt':
-                return (
-                    <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.reviewDateLabel')}</label>
-                        <input
-                            type="datetime-local"
-                            aria-label="Review date"
-                            value={editReviewAt}
-                            onChange={(e) => setEditReviewAt(e.target.value)}
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                        />
-                    </div>
-                );
-            case 'status':
-                return (
-                    <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.statusLabel')}</label>
-                        <select
-                            value={task.status}
-                            aria-label="Status"
-                            onChange={handleStatusChange}
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                        >
-                            <option value="inbox">{t('status.inbox')}</option>
-                            <option value="next">{t('status.next')}</option>
-                            <option value="waiting">{t('status.waiting')}</option>
-                            <option value="someday">{t('status.someday')}</option>
-                            <option value="done">{t('status.done')}</option>
-                        </select>
-                    </div>
-                );
-            case 'priority':
-                return (
-                    <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.priorityLabel')}</label>
-                        <select
-                            value={editPriority}
-                            aria-label={t('taskEdit.priorityLabel')}
-                            onChange={(e) => setEditPriority(e.target.value as TaskPriority | '')}
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                        >
-                            <option value="">{t('common.none')}</option>
-                            <option value="low">{t('priority.low')}</option>
-                            <option value="medium">{t('priority.medium')}</option>
-                            <option value="high">{t('priority.high')}</option>
-                            <option value="urgent">{t('priority.urgent')}</option>
-                        </select>
-                    </div>
-                );
-            case 'recurrence':
-                return (
-                    <div className="flex flex-col gap-1 w-full">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.recurrenceLabel')}</label>
-                        <select
-                            value={editRecurrence}
-                            aria-label="Recurrence"
-                            onChange={(e) => {
-                                const value = e.target.value as RecurrenceRule | '';
-                                setEditRecurrence(value);
-                                if (value === 'weekly') {
-                                    const parsed = parseRRuleString(editRecurrenceRRule);
-                                    if (!editRecurrenceRRule || parsed.rule !== 'weekly') {
-                                        setEditRecurrenceRRule(buildRRuleString('weekly'));
-                                    }
-                                }
-                                if (value === 'monthly') {
-                                    const parsed = parseRRuleString(editRecurrenceRRule);
-                                    if (!editRecurrenceRRule || parsed.rule !== 'monthly') {
-                                        setEditRecurrenceRRule(buildRRuleString('monthly'));
-                                    }
-                                }
-                                if (!value) {
-                                    setEditRecurrenceRRule('');
-                                }
-                            }}
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 w-full text-foreground"
-                        >
-                            <option value="">{t('recurrence.none')}</option>
-                            <option value="daily">{t('recurrence.daily')}</option>
-                            <option value="weekly">{t('recurrence.weekly')}</option>
-                            <option value="monthly">{t('recurrence.monthly')}</option>
-                            <option value="yearly">{t('recurrence.yearly')}</option>
-                        </select>
-                        {editRecurrence && (
-                            <label className="flex items-center gap-2 pt-1 text-[10px] text-muted-foreground">
-                                <input
-                                    type="checkbox"
-                                    checked={editRecurrenceStrategy === 'fluid'}
-                                    onChange={(e) => setEditRecurrenceStrategy(e.target.checked ? 'fluid' : 'strict')}
-                                    className="accent-primary"
-                                />
-                                {t('recurrence.afterCompletion')}
-                            </label>
-                        )}
-                        {editRecurrence === 'weekly' && (
-                            <div className="pt-1">
-                                <span className="text-[10px] text-muted-foreground">Repeat on</span>
-                                <WeekdaySelector
-                                    value={editRecurrenceRRule || buildRRuleString('weekly')}
-                                    onChange={(rrule) => setEditRecurrenceRRule(rrule)}
-                                    className="pt-1"
-                                />
-                            </div>
-                        )}
-                        {editRecurrence === 'monthly' && (
-                            <div className="pt-1 space-y-2">
-                                <span className="text-[10px] text-muted-foreground">Repeat on</span>
-                                <div className="flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditRecurrenceRRule(buildRRuleString('monthly'))}
-                                        className={cn(
-                                            'text-[10px] px-2 py-1 rounded border transition-colors',
-                                            monthlyRecurrence.pattern === 'date'
-                                                ? 'bg-primary text-primary-foreground border-primary'
-                                                : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
-                                        )}
-                                    >
-                                        {t('recurrence.monthlyOnDay')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={openCustomRecurrence}
-                                        className={cn(
-                                            'text-[10px] px-2 py-1 rounded border transition-colors',
-                                            monthlyRecurrence.pattern === 'custom'
-                                                ? 'bg-primary text-primary-foreground border-primary'
-                                                : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
-                                        )}
-                                    >
-                                        {t('recurrence.custom')}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                );
-            case 'timeEstimate':
-                return (
-                    <div className="flex flex-col gap-1 w-full">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.timeEstimateLabel')}</label>
-                        <select
-                            value={editTimeEstimate}
-                            aria-label="Time estimate"
-                            onChange={(e) => setEditTimeEstimate(e.target.value as TimeEstimate | '')}
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 w-full text-foreground"
-                        >
-                            <option value="">{t('common.none')}</option>
-                            <option value="5min">5m</option>
-                            <option value="10min">10m</option>
-                            <option value="15min">15m</option>
-                            <option value="30min">30m</option>
-                            <option value="1hr">1h</option>
-                            <option value="2hr">2h</option>
-                            <option value="3hr">3h</option>
-                            <option value="4hr">4h</option>
-                            <option value="4hr+">4h+</option>
-                        </select>
-                    </div>
-                );
-            case 'contexts':
-                return (
-                    <div className="flex flex-col gap-1 w-full">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.contextsLabel')}</label>
-                        <input
-                            type="text"
-                            aria-label="Contexts"
-                            value={editContexts}
-                            onChange={(e) => setEditContexts(e.target.value)}
-                            placeholder="@home, @work"
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 w-full text-foreground placeholder:text-muted-foreground"
-                        />
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {['@home', '@work', '@errands', '@computer', '@phone'].map(tag => {
-                                const currentTags = editContexts.split(',').map(t => t.trim()).filter(Boolean);
-                                const isActive = currentTags.includes(tag);
-                                return (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => {
-                                            let newTags;
-                                            if (isActive) {
-                                                newTags = currentTags.filter(t => t !== tag);
-                                            } else {
-                                                newTags = [...currentTags, tag];
-                                            }
-                                            setEditContexts(newTags.join(', '));
-                                        }}
-                                        className={cn(
-                                            "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-                                            isActive
-                                                ? "bg-primary/10 border-primary text-primary"
-                                                : "bg-transparent border-border text-muted-foreground hover:border-primary/50"
-                                        )}
-                                    >
-                                        {tag}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            case 'tags':
-                return (
-                    <div className="flex flex-col gap-1 w-full">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.tagsLabel')}</label>
-                        <input
-                            type="text"
-                            aria-label="Tags"
-                            value={editTags}
-                            onChange={(e) => setEditTags(e.target.value)}
-                            placeholder="#urgent, #idea"
-                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 w-full text-foreground placeholder:text-muted-foreground"
-                        />
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {popularTagOptions.map(tag => {
-                                const currentTags = editTags.split(',').map(t => t.trim()).filter(Boolean);
-                                const isActive = currentTags.includes(tag);
-                                return (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => {
-                                            let newTags;
-                                            if (isActive) {
-                                                newTags = currentTags.filter(t => t !== tag);
-                                            } else {
-                                                newTags = [...currentTags, tag];
-                                            }
-                                            setEditTags(newTags.join(', '));
-                                        }}
-                                        className={cn(
-                                            "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-                                            isActive
-                                                ? "bg-primary/10 border-primary text-primary"
-                                                : "bg-transparent border-border text-muted-foreground hover:border-primary/50"
-                                        )}
-                                    >
-                                        {tag}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            case 'checklist':
-                return (
-                    <div className="flex flex-col gap-2 w-full pt-2 border-t border-border/50">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.checklist')}</label>
-                        <div className="space-y-2">
-                            {(task.checklist || []).map((item, index) => (
-                                <div key={item.id || index} className="flex items-center gap-2 group/item">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const newList = (task.checklist || []).map((item, i) =>
-                                                i === index ? { ...item, isCompleted: !item.isCompleted } : item
-                                            );
-                                            updateTask(task.id, { checklist: newList });
-                                        }}
-                                        className={cn(
-                                            "w-4 h-4 border rounded flex items-center justify-center transition-colors",
-                                            item.isCompleted
-                                                ? "bg-primary border-primary text-primary-foreground"
-                                                : "border-muted-foreground hover:border-primary"
-                                        )}
-                                    >
-                                        {item.isCompleted && <Check className="w-3 h-3" />}
-                                    </button>
-                                    <input
-                                        type="text"
-                                        value={item.title}
-                                        onChange={(e) => {
-                                            const newList = (task.checklist || []).map((item, i) =>
-                                                i === index ? { ...item, title: e.target.value } : item
-                                            );
-                                            updateTask(task.id, { checklist: newList });
-                                        }}
-                                        className={cn(
-                                            "flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-primary/50 px-1",
-                                            item.isCompleted && "text-muted-foreground line-through"
-                                        )}
-                                        placeholder={t('taskEdit.itemNamePlaceholder')}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const newList = (task.checklist || []).filter((_, i) => i !== index);
-                                            updateTask(task.id, { checklist: newList });
-                                        }}
-                                        className="opacity-0 group-hover/item:opacity-100 text-muted-foreground hover:text-destructive p-1"
-                                    >
-                                        <Trash2 className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const newItem = {
-                                        id: generateUUID(),
-                                        title: '',
-                                        isCompleted: false
-                                    };
-                                    updateTask(task.id, {
-                                        checklist: [...(task.checklist || []), newItem]
-                                    });
-                                }}
-                                className="text-xs text-blue-500 hover:text-blue-600 font-medium flex items-center gap-1"
-                            >
-                                <Plus className="w-3 h-3" />
-                                {t('taskEdit.addItem')}
-                            </button>
-                            {(task.checklist || []).length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => resetTaskChecklist(task.id)}
-                                        className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors text-muted-foreground"
-                                    >
-                                        {t('taskEdit.resetChecklist')}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
+    const renderField = (fieldId: TaskEditorFieldId) => (
+        <TaskItemFieldRenderer
+            fieldId={fieldId}
+            t={t}
+            task={task}
+            showDescriptionPreview={showDescriptionPreview}
+            onToggleDescriptionPreview={() => setShowDescriptionPreview((prev) => !prev)}
+            editDescription={editDescription}
+            onEditDescription={(value) => {
+                setEditDescription(value);
+                resetCopilotDraft();
+            }}
+            attachmentError={attachmentError}
+            visibleEditAttachments={visibleEditAttachments}
+            onAddFileAttachment={addFileAttachment}
+            onAddLinkAttachment={addLinkAttachment}
+            onOpenAttachment={openAttachment}
+            onRemoveAttachment={removeAttachment}
+            editStartTime={editStartTime}
+            onEditStartTime={setEditStartTime}
+            editReviewAt={editReviewAt}
+            onEditReviewAt={setEditReviewAt}
+            onStatusChange={handleStatusChange}
+            editPriority={editPriority}
+            onEditPriority={setEditPriority}
+            editRecurrence={editRecurrence}
+            onEditRecurrence={setEditRecurrence}
+            editRecurrenceStrategy={editRecurrenceStrategy}
+            onEditRecurrenceStrategy={setEditRecurrenceStrategy}
+            editRecurrenceRRule={editRecurrenceRRule}
+            onEditRecurrenceRRule={setEditRecurrenceRRule}
+            onOpenCustomRecurrence={openCustomRecurrence}
+            monthlyRecurrence={monthlyRecurrence}
+            editTimeEstimate={editTimeEstimate}
+            onEditTimeEstimate={setEditTimeEstimate}
+            editContexts={editContexts}
+            onEditContexts={setEditContexts}
+            editTags={editTags}
+            onEditTags={setEditTags}
+            popularTagOptions={popularTagOptions}
+            taskId={task.id}
+            updateTask={updateTask}
+            resetTaskChecklist={resetTaskChecklist}
+        />
+    );
 
     useEffect(() => {
         if (isEditing && !wasEditingRef.current) {
@@ -1130,245 +719,140 @@ export const TaskItem = memo(function TaskItem({
 
     return (
         <>
-        <div
-            data-task-id={task.id}
-            onClickCapture={onSelect ? () => onSelect?.() : undefined}
-            className={cn(
-                "group bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-2 border-l-4",
-                isSelected && "ring-2 ring-primary/40",
-                isHighlighted && "ring-2 ring-primary/70 border-primary/40"
-            )}
-            style={{ borderLeftColor: getStatusColor(task.status).border }}
-        >
-            <div className="flex items-start gap-3">
-                {selectionMode && (
-                    <input
-                        type="checkbox"
-                        aria-label="Select task"
-                        checked={isMultiSelected}
-                        onChange={() => onToggleSelect?.()}
-                        className="mt-1.5 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                    />
-                )}
-
-                {isEditing ? (
-                    <div className="flex-1 min-w-0">
-                        <TaskItemEditor
-                            t={t}
-                            editTitle={editTitle}
-                            setEditTitle={setEditTitle}
-                            resetCopilotDraft={resetCopilotDraft}
-                            aiEnabled={aiEnabled}
-                            isAIWorking={isAIWorking}
-                            handleAIClarify={handleAIClarify}
-                            handleAIBreakdown={handleAIBreakdown}
-                            copilotSuggestion={copilotSuggestion}
-                            copilotApplied={copilotApplied}
-                            applyCopilotSuggestion={applyCopilotSuggestion}
-                            copilotContext={copilotContext}
-                            copilotEstimate={copilotEstimate}
-                            copilotTags={copilotSuggestion?.tags ?? []}
-                            timeEstimatesEnabled={timeEstimatesEnabled}
-                            aiError={aiError}
-                            aiBreakdownSteps={aiBreakdownSteps}
-                            onAddBreakdownSteps={() => {
-                                if (!aiBreakdownSteps?.length) return;
-                                const newItems = aiBreakdownSteps.map((step) => ({
-                                    id: generateUUID(),
-                                    title: step,
-                                    isCompleted: false,
-                                }));
-                                updateTask(task.id, { checklist: [...(task.checklist || []), ...newItems] });
-                                setAiBreakdownSteps(null);
-                            }}
-                            onDismissBreakdown={() => setAiBreakdownSteps(null)}
-                            aiClarifyResponse={aiClarifyResponse}
-                            onSelectClarifyOption={(action) => {
-                                setEditTitle(action);
-                                setAiClarifyResponse(null);
-                            }}
-                            onApplyAISuggestion={() => {
-                                if (aiClarifyResponse?.suggestedAction) {
-                                    applyAISuggestion(aiClarifyResponse.suggestedAction);
-                                }
-                            }}
-                            onDismissClarify={() => setAiClarifyResponse(null)}
-                            projects={projects}
-                            editProjectId={editProjectId}
-                            setEditProjectId={setEditProjectId}
-                            onCreateProject={handleCreateProject}
-                            showProjectField={showProjectField}
-                            editDueDate={editDueDate}
-                            setEditDueDate={setEditDueDate}
-                            showDetails={showDetails}
-                            toggleDetails={() => setShowDetails((prev) => !prev)}
-                            fieldIdsToRender={fieldIdsToRender}
-                            renderField={renderField}
-                            editLocation={editLocation}
-                            setEditLocation={setEditLocation}
-                            inputContexts={allContexts}
-                            onDuplicateTask={() => duplicateTask(task.id, false)}
-                            onCancel={() => {
-                                resetEditState();
-                                setIsEditing(false);
-                            }}
-                            onSubmit={handleSubmit}
-                        />
-                    </div>
-                ) : (
-                    <TaskItemDisplay
-                        task={task}
-                        project={project}
-                        projectColor={projectColor}
-                        selectionMode={selectionMode}
-                        isViewOpen={isViewOpen}
-                        onToggleSelect={onToggleSelect}
-                        onToggleView={() => setIsViewOpen((prev) => !prev)}
-                        onEdit={() => {
-                            resetEditState();
-                            setIsViewOpen(false);
-                            setIsEditing(true);
-                        }}
-                        onDelete={() => deleteTask(task.id)}
-                        onStatusChange={(status) => moveTask(task.id, status)}
-                        openAttachment={openAttachment}
-                        visibleAttachments={visibleAttachments}
-                        recurrenceRule={recurrenceRule}
-                        recurrenceStrategy={recurrenceStrategy}
-                        prioritiesEnabled={prioritiesEnabled}
-                        timeEstimatesEnabled={timeEstimatesEnabled}
-                        isStagnant={isStagnant}
-                        t={t}
-                    />
-                )}
-            </div>
-        </div >
-        {showCustomRecurrence && (
             <div
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                role="button"
-                tabIndex={0}
-                aria-label={t('common.close')}
-                onClick={() => setShowCustomRecurrence(false)}
-                onKeyDown={(event) => {
-                    if (event.key === 'Escape') {
-                        event.preventDefault();
-                        setShowCustomRecurrence(false);
-                    }
-                }}
+                data-task-id={task.id}
+                onClickCapture={onSelect ? () => onSelect?.() : undefined}
+                className={cn(
+                    "group bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-2 border-l-4",
+                    isSelected && "ring-2 ring-primary/40",
+                    isHighlighted && "ring-2 ring-primary/70 border-primary/40"
+                )}
+                style={{ borderLeftColor: getStatusColor(task.status).border }}
             >
-                <div
-                    className="bg-card border border-border rounded-lg shadow-xl max-w-md w-full mx-4"
-                    onClick={(event) => event.stopPropagation()}
-                >
-                    <div className="p-4 border-b border-border">
-                        <h3 className="text-lg font-semibold">{t('recurrence.customTitle')}</h3>
-                    </div>
-                    <div className="p-4 space-y-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm">{t('recurrence.repeatEvery')}</span>
-                            <input
-                                type="number"
-                                min={1}
-                                max={12}
-                                value={customInterval}
-                                onChange={(event) => setCustomInterval(event.target.valueAsNumber || 1)}
-                                className="w-20 text-sm bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
+                <div className="flex items-start gap-3">
+                    {selectionMode && (
+                        <input
+                            type="checkbox"
+                            aria-label="Select task"
+                            checked={isMultiSelected}
+                            onChange={() => onToggleSelect?.()}
+                            className="mt-1.5 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                        />
+                    )}
+
+                    {isEditing ? (
+                        <div className="flex-1 min-w-0">
+                            <TaskItemEditor
+                                t={t}
+                                editTitle={editTitle}
+                                setEditTitle={setEditTitle}
+                                resetCopilotDraft={resetCopilotDraft}
+                                aiEnabled={aiEnabled}
+                                isAIWorking={isAIWorking}
+                                handleAIClarify={handleAIClarify}
+                                handleAIBreakdown={handleAIBreakdown}
+                                copilotSuggestion={copilotSuggestion}
+                                copilotApplied={copilotApplied}
+                                applyCopilotSuggestion={applyCopilotSuggestion}
+                                copilotContext={copilotContext}
+                                copilotEstimate={copilotEstimate}
+                                copilotTags={copilotSuggestion?.tags ?? []}
+                                timeEstimatesEnabled={timeEstimatesEnabled}
+                                aiError={aiError}
+                                aiBreakdownSteps={aiBreakdownSteps}
+                                onAddBreakdownSteps={() => {
+                                    if (!aiBreakdownSteps?.length) return;
+                                    const newItems = aiBreakdownSteps.map((step) => ({
+                                        id: generateUUID(),
+                                        title: step,
+                                        isCompleted: false,
+                                    }));
+                                    updateTask(task.id, { checklist: [...(task.checklist || []), ...newItems] });
+                                    setAiBreakdownSteps(null);
+                                }}
+                                onDismissBreakdown={() => setAiBreakdownSteps(null)}
+                                aiClarifyResponse={aiClarifyResponse}
+                                onSelectClarifyOption={(action) => {
+                                    setEditTitle(action);
+                                    setAiClarifyResponse(null);
+                                }}
+                                onApplyAISuggestion={() => {
+                                    if (aiClarifyResponse?.suggestedAction) {
+                                        applyAISuggestion(aiClarifyResponse.suggestedAction);
+                                    }
+                                }}
+                                onDismissClarify={() => setAiClarifyResponse(null)}
+                                projects={projects}
+                                editProjectId={editProjectId}
+                                setEditProjectId={setEditProjectId}
+                                onCreateProject={handleCreateProject}
+                                showProjectField={showProjectField}
+                                editDueDate={editDueDate}
+                                setEditDueDate={setEditDueDate}
+                                showDetails={showDetails}
+                                toggleDetails={() => setShowDetails((prev) => !prev)}
+                                fieldIdsToRender={fieldIdsToRender}
+                                renderField={renderField}
+                                editLocation={editLocation}
+                                setEditLocation={setEditLocation}
+                                inputContexts={allContexts}
+                                onDuplicateTask={() => duplicateTask(task.id, false)}
+                                onCancel={() => {
+                                    resetEditState();
+                                    setIsEditing(false);
+                                }}
+                                onSubmit={handleSubmit}
                             />
-                            <span className="text-sm">{t('recurrence.monthUnit')}</span>
                         </div>
-                        <div className="space-y-2">
-                            <div className="text-xs text-muted-foreground">{t('recurrence.onLabel')}</div>
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setCustomMode('date')}
-                                    className={cn(
-                                        'text-[10px] px-2 py-1 rounded border transition-colors',
-                                        customMode === 'date'
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
-                                    )}
-                                >
-                                    {t('recurrence.onDayOfMonth').replace('{day}', String(customMonthDay))}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setCustomMode('nth')}
-                                    className={cn(
-                                        'text-[10px] px-2 py-1 rounded border transition-colors',
-                                        customMode === 'nth'
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
-                                    )}
-                                >
-                                    {t('recurrence.onNthWeekday')
-                                        .replace('{ordinal}', t(`recurrence.ordinal.${customOrdinal === '-1' ? 'last' : customOrdinal === '1' ? 'first' : customOrdinal === '2' ? 'second' : customOrdinal === '3' ? 'third' : 'fourth'}`))
-                                        .replace('{weekday}', WEEKDAY_FULL_LABELS[customWeekday] ?? customWeekday)}
-                                </button>
-                            </div>
-                            {customMode === 'nth' && (
-                                <div className="flex flex-wrap gap-2 items-center">
-                                    <select
-                                        value={customOrdinal}
-                                        onChange={(event) => setCustomOrdinal(event.target.value as '1' | '2' | '3' | '4' | '-1')}
-                                        className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                                    >
-                                        <option value="1">{t('recurrence.ordinal.first')}</option>
-                                        <option value="2">{t('recurrence.ordinal.second')}</option>
-                                        <option value="3">{t('recurrence.ordinal.third')}</option>
-                                        <option value="4">{t('recurrence.ordinal.fourth')}</option>
-                                        <option value="-1">{t('recurrence.ordinal.last')}</option>
-                                    </select>
-                                    <select
-                                        value={customWeekday}
-                                        onChange={(event) => setCustomWeekday(event.target.value as RecurrenceWeekday)}
-                                        className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                                    >
-                                        {WEEKDAY_ORDER.map((day) => (
-                                            <option key={day} value={day}>
-                                                {WEEKDAY_FULL_LABELS[day] ?? day}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                            {customMode === 'date' && (
-                                <div className="flex items-center gap-2">
-                                    <label className="text-xs text-muted-foreground">{t('recurrence.onDayOfMonth').replace('{day}', '')}</label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={31}
-                                        value={customMonthDay}
-                                        onChange={(event) => {
-                                            const value = Number(event.target.value);
-                                            setCustomMonthDay(Number.isFinite(value) ? Math.min(Math.max(value, 1), 31) : 1);
-                                        }}
-                                        className="w-20 text-sm bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="p-4 border-t border-border flex justify-end gap-2">
-                        <button
-                            type="button"
-                            className="text-sm px-3 py-1 rounded border border-border text-muted-foreground hover:bg-muted"
-                            onClick={() => setShowCustomRecurrence(false)}
-                        >
-                            {t('common.cancel')}
-                        </button>
-                        <button
-                            type="button"
-                            className="text-sm px-3 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                            onClick={applyCustomRecurrence}
-                        >
-                            {t('common.save')}
-                        </button>
-                    </div>
+                    ) : (
+                        <TaskItemDisplay
+                            task={task}
+                            project={project}
+                            projectColor={projectColor}
+                            selectionMode={selectionMode}
+                            isViewOpen={isViewOpen}
+                            onToggleSelect={onToggleSelect}
+                            onToggleView={() => setIsViewOpen((prev) => !prev)}
+                            onEdit={() => {
+                                resetEditState();
+                                setIsViewOpen(false);
+                                setIsEditing(true);
+                            }}
+                            onDelete={() => deleteTask(task.id)}
+                            onStatusChange={(status) => moveTask(task.id, status)}
+                            openAttachment={openAttachment}
+                            visibleAttachments={visibleAttachments}
+                            recurrenceRule={recurrenceRule}
+                            recurrenceStrategy={recurrenceStrategy}
+                            prioritiesEnabled={prioritiesEnabled}
+                            timeEstimatesEnabled={timeEstimatesEnabled}
+                            isStagnant={isStagnant}
+                            t={t}
+                        />
+                    )}
                 </div>
             </div>
+            {showCustomRecurrence && (
+                <TaskItemRecurrenceModal
+                    t={t}
+                    weekdayOrder={WEEKDAY_ORDER}
+                    weekdayLabels={WEEKDAY_FULL_LABELS}
+                customInterval={customInterval}
+                customMode={customMode}
+                customOrdinal={customOrdinal}
+                customWeekday={customWeekday}
+                customMonthDay={customMonthDay}
+                onIntervalChange={(value) => setCustomInterval(value)}
+                onModeChange={(value) => setCustomMode(value)}
+                onOrdinalChange={(value) => setCustomOrdinal(value)}
+                onWeekdayChange={(value) => setCustomWeekday(value)}
+                onMonthDayChange={(value) => {
+                    const safe = Number.isFinite(value) ? Math.min(Math.max(value, 1), 31) : 1;
+                    setCustomMonthDay(safe);
+                }}
+                onClose={() => setShowCustomRecurrence(false)}
+                onApply={applyCustomRecurrence}
+            />
         )}
         <PromptModal
             isOpen={showLinkPrompt}
