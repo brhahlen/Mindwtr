@@ -47,7 +47,7 @@ export class SqliteAdapter {
         }
     }
 
-    private async ensureFtsPopulated() {
+    private async ensureFtsPopulated(forceRebuild = false) {
         const taskCountRow = await this.client.get<{ count?: number }>('SELECT COUNT(*) as count FROM tasks_fts');
         const taskCount = Number(taskCountRow?.count ?? 0);
         const missingTaskRow = await this.client.get<{ count?: number }>(
@@ -56,7 +56,8 @@ export class SqliteAdapter {
         const extraTaskRow = await this.client.get<{ count?: number }>(
             'SELECT COUNT(*) as count FROM tasks_fts WHERE id NOT IN (SELECT id FROM tasks)'
         );
-        const needsTaskRebuild = taskCount === 0 || Number(missingTaskRow?.count ?? 0) > 0 || Number(extraTaskRow?.count ?? 0) > 0;
+        const needsTaskRebuild =
+            forceRebuild || taskCount === 0 || Number(missingTaskRow?.count ?? 0) > 0 || Number(extraTaskRow?.count ?? 0) > 0;
         if (needsTaskRebuild) {
             await this.client.run('DELETE FROM tasks_fts');
             await this.client.run(
@@ -74,7 +75,10 @@ export class SqliteAdapter {
             'SELECT COUNT(*) as count FROM projects_fts WHERE id NOT IN (SELECT id FROM projects)'
         );
         const needsProjectRebuild =
-            projectCount === 0 || Number(missingProjectRow?.count ?? 0) > 0 || Number(extraProjectRow?.count ?? 0) > 0;
+            forceRebuild ||
+            projectCount === 0 ||
+            Number(missingProjectRow?.count ?? 0) > 0 ||
+            Number(extraProjectRow?.count ?? 0) > 0;
         if (needsProjectRebuild) {
             await this.client.run('DELETE FROM projects_fts');
             await this.client.run(
@@ -218,7 +222,7 @@ export class SqliteAdapter {
             return await runSearch();
         } catch (error) {
             try {
-                await this.ensureFtsPopulated();
+                await this.ensureFtsPopulated(true);
                 return await runSearch();
             } catch (retryError) {
                 console.warn('Search failed:', retryError);
@@ -233,12 +237,20 @@ export class SqliteAdapter {
         try {
             const syncIds = async (table: 'tasks' | 'projects' | 'areas', ids: string[]) => {
                 const tempTable = `temp_${table}_ids`;
-                await this.client.run(`CREATE TEMP TABLE IF NOT EXISTS ${tempTable} (id TEXT PRIMARY KEY)`);
-                await this.client.run(`DELETE FROM ${tempTable}`);
-                for (const id of ids) {
-                    await this.client.run(`INSERT OR IGNORE INTO ${tempTable} (id) VALUES (?)`, [id]);
+                try {
+                    await this.client.run(`CREATE TEMP TABLE IF NOT EXISTS ${tempTable} (id TEXT PRIMARY KEY)`);
+                    await this.client.run(`DELETE FROM ${tempTable}`);
+                    for (const id of ids) {
+                        await this.client.run(`INSERT OR IGNORE INTO ${tempTable} (id) VALUES (?)`, [id]);
+                    }
+                    await this.client.run(`DELETE FROM ${table} WHERE id NOT IN (SELECT id FROM ${tempTable})`);
+                } finally {
+                    try {
+                        await this.client.run(`DROP TABLE IF EXISTS ${tempTable}`);
+                    } catch (dropError) {
+                        console.warn(`Failed to drop temp table ${tempTable}`, dropError);
+                    }
                 }
-                await this.client.run(`DELETE FROM ${table} WHERE id NOT IN (SELECT id FROM ${tempTable})`);
             };
 
             await syncIds('tasks', data.tasks.map((task) => task.id));
