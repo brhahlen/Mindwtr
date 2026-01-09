@@ -144,7 +144,17 @@ export function ListView({ title, statusFilter }: ListViewProps) {
     }, [allContexts, allTags]);
 
     useEffect(() => {
-        setAiKey(loadAIKey(aiProvider));
+        let active = true;
+        loadAIKey(aiProvider)
+            .then((key) => {
+                if (active) setAiKey(key);
+            })
+            .catch(() => {
+                if (active) setAiKey('');
+            });
+        return () => {
+            active = false;
+        };
     }, [aiProvider]);
 
     const copilotAbortRef = useRef<AbortController | null>(null);

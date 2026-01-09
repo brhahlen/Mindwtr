@@ -212,7 +212,17 @@ export function SettingsView() {
     }, []);
 
     useEffect(() => {
-        setAiApiKey(loadAIKey(aiProvider));
+        let active = true;
+        loadAIKey(aiProvider)
+            .then((key) => {
+                if (active) setAiApiKey(key);
+            })
+            .catch(() => {
+                if (active) setAiApiKey('');
+            });
+        return () => {
+            active = false;
+        };
     }, [aiProvider]);
 
     useEffect(() => {
@@ -279,7 +289,7 @@ export function SettingsView() {
 
     const handleAiApiKeyChange = (value: string) => {
         setAiApiKey(value);
-        saveAIKey(aiProvider, value);
+        saveAIKey(aiProvider, value).catch(console.error);
     };
 
     const persistCalendars = async (next: ExternalCalendarSubscription[]) => {

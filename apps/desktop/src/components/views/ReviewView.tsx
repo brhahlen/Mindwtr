@@ -112,7 +112,7 @@ function WeeklyReviewGuideModal({ onClose }: { onClose: () => void }) {
             setAiError(t('ai.disabledBody'));
             return;
         }
-        const apiKey = loadAIKey(aiProvider);
+        const apiKey = await loadAIKey(aiProvider);
         if (!apiKey) {
             setAiError(t('ai.missingKeyBody'));
             return;

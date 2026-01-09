@@ -1,7 +1,7 @@
 import type { AIProviderId } from '@mindwtr/core';
-import { buildAIConfig, buildCopilotConfig } from '@mindwtr/core';
+import { buildAIConfig, buildCopilotConfig, getAIKeyStorageKey } from '@mindwtr/core';
+import { isTauriRuntime } from './runtime';
 
-const AI_KEY_PREFIX = 'mindwtr-ai-key:';
 const AI_SECRET_KEY = 'mindwtr-ai-key-secret';
 
 const getSessionSecret = (): Uint8Array | null => {
@@ -46,9 +46,9 @@ const xorBytes = (data: Uint8Array, key: Uint8Array): Uint8Array => {
     return out;
 };
 
-export function loadAIKey(provider: AIProviderId): string {
+const loadLocalKey = (provider: AIProviderId): string => {
     if (typeof localStorage === 'undefined') return '';
-    const stored = localStorage.getItem(`${AI_KEY_PREFIX}${provider}`);
+    const stored = localStorage.getItem(getAIKeyStorageKey(provider));
     if (!stored) return '';
     const secret = getSessionSecret();
     if (!secret) return '';
@@ -58,11 +58,11 @@ export function loadAIKey(provider: AIProviderId): string {
     } catch {
         return '';
     }
-}
+};
 
-export function saveAIKey(provider: AIProviderId, value: string): void {
+const saveLocalKey = (provider: AIProviderId, value: string): void => {
     if (typeof localStorage === 'undefined') return;
-    const key = `${AI_KEY_PREFIX}${provider}`;
+    const key = getAIKeyStorageKey(provider);
     if (!value) {
         localStorage.removeItem(key);
         return;
@@ -75,6 +75,32 @@ export function saveAIKey(provider: AIProviderId, value: string): void {
     const bytes = new TextEncoder().encode(value);
     const encrypted = xorBytes(bytes, secret);
     localStorage.setItem(key, bytesToBase64(encrypted));
+};
+
+export async function loadAIKey(provider: AIProviderId): Promise<string> {
+    if (isTauriRuntime()) {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            const value = await invoke<string | null>('get_ai_key', { provider });
+            if (typeof value === 'string') return value;
+        } catch {
+            return '';
+        }
+    }
+    return loadLocalKey(provider);
+}
+
+export async function saveAIKey(provider: AIProviderId, value: string): Promise<void> {
+    if (isTauriRuntime()) {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('set_ai_key', { provider, value: value || null });
+            return;
+        } catch {
+            // fall through to local storage
+        }
+    }
+    saveLocalKey(provider, value);
 }
 
 export { buildAIConfig, buildCopilotConfig };

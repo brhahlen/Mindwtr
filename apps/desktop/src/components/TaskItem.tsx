@@ -149,6 +149,7 @@ export const TaskItem = memo(function TaskItem({
     const copilotAbortRef = useRef<AbortController | null>(null);
     const aiEnabled = settings?.ai?.enabled === true;
     const aiProvider = (settings?.ai?.provider ?? 'openai') as AIProviderId;
+    const [aiKey, setAiKey] = useState('');
     const prioritiesEnabled = settings?.features?.priorities === true;
     const timeEstimatesEnabled = settings?.features?.timeEstimates === true;
     const isHighlighted = highlightTaskId === task.id;
@@ -540,12 +541,25 @@ export const TaskItem = memo(function TaskItem({
     };
 
     useEffect(() => {
+        let active = true;
+        loadAIKey(aiProvider)
+            .then((key) => {
+                if (active) setAiKey(key);
+            })
+            .catch(() => {
+                if (active) setAiKey('');
+            });
+        return () => {
+            active = false;
+        };
+    }, [aiProvider]);
+
+    useEffect(() => {
         if (!aiEnabled) {
             setCopilotSuggestion(null);
             return;
         }
-        const apiKey = loadAIKey(aiProvider);
-        if (!apiKey) {
+        if (!aiKey) {
             setCopilotSuggestion(null);
             return;
         }
@@ -560,7 +574,7 @@ export const TaskItem = memo(function TaskItem({
         const handle = setTimeout(async () => {
             try {
                 const currentContexts = editContexts.split(',').map((c) => c.trim()).filter(Boolean);
-                const provider = createAIProvider(buildCopilotConfig(settings, apiKey));
+                const provider = createAIProvider(buildCopilotConfig(settings, aiKey));
                 if (copilotAbortRef.current) copilotAbortRef.current.abort();
                 const abortController = typeof AbortController === 'function' ? new AbortController() : null;
                 copilotAbortRef.current = abortController;
@@ -592,7 +606,7 @@ export const TaskItem = memo(function TaskItem({
                 copilotAbortRef.current = null;
             }
         };
-    }, [aiEnabled, aiProvider, editTitle, editDescription, editContexts, settings, timeEstimatesEnabled]);
+    }, [aiEnabled, aiKey, editTitle, editDescription, editContexts, settings, timeEstimatesEnabled]);
 
     const logAIDebug = async (context: string, message: string) => {
         if (!isTauriRuntime()) return;
@@ -615,12 +629,11 @@ export const TaskItem = memo(function TaskItem({
             setAiError(t('ai.disabledBody'));
             return null;
         }
-        const apiKey = loadAIKey(aiProvider);
-        if (!apiKey) {
+        if (!aiKey) {
             setAiError(t('ai.missingKeyBody'));
             return null;
         }
-        return createAIProvider(buildAIConfig(settings, apiKey));
+        return createAIProvider(buildAIConfig(settings, aiKey));
     };
 
     const applyAISuggestion = (suggested: { title?: string; context?: string; timeEstimate?: TimeEstimate }) => {

@@ -164,6 +164,9 @@ struct AppConfigToml {
     cloud_url: Option<String>,
     cloud_token: Option<String>,
     external_calendars: Option<String>,
+    ai_key_openai: Option<String>,
+    ai_key_anthropic: Option<String>,
+    ai_key_gemini: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -717,6 +720,12 @@ fn read_config_toml(path: &Path) -> AppConfigToml {
             config.cloud_token = parse_toml_string_value(value);
         } else if key == "external_calendars" {
             config.external_calendars = parse_toml_string_value(value);
+        } else if key == "ai_key_openai" {
+            config.ai_key_openai = parse_toml_string_value(value);
+        } else if key == "ai_key_anthropic" {
+            config.ai_key_anthropic = parse_toml_string_value(value);
+        } else if key == "ai_key_gemini" {
+            config.ai_key_gemini = parse_toml_string_value(value);
         }
     }
     config
@@ -796,6 +805,15 @@ fn write_config_toml_with_header(path: &Path, config: &AppConfigToml, header: &s
     if let Some(external_calendars) = &config.external_calendars {
         lines.push(format!("external_calendars = {}", serialize_toml_string_value(external_calendars)));
     }
+    if let Some(ai_key_openai) = &config.ai_key_openai {
+        lines.push(format!("ai_key_openai = {}", serialize_toml_string_value(ai_key_openai)));
+    }
+    if let Some(ai_key_anthropic) = &config.ai_key_anthropic {
+        lines.push(format!("ai_key_anthropic = {}", serialize_toml_string_value(ai_key_anthropic)));
+    }
+    if let Some(ai_key_gemini) = &config.ai_key_gemini {
+        lines.push(format!("ai_key_gemini = {}", serialize_toml_string_value(ai_key_gemini)));
+    }
     let content = format!("{}\n", lines.join("\n"));
     fs::write(path, content).map_err(|e| e.to_string())
 }
@@ -825,6 +843,15 @@ fn merge_config(base: &mut AppConfigToml, overrides: AppConfigToml) {
     if overrides.external_calendars.is_some() {
         base.external_calendars = overrides.external_calendars;
     }
+    if overrides.ai_key_openai.is_some() {
+        base.ai_key_openai = overrides.ai_key_openai;
+    }
+    if overrides.ai_key_anthropic.is_some() {
+        base.ai_key_anthropic = overrides.ai_key_anthropic;
+    }
+    if overrides.ai_key_gemini.is_some() {
+        base.ai_key_gemini = overrides.ai_key_gemini;
+    }
 }
 
 fn read_config(app: &tauri::AppHandle) -> AppConfigToml {
@@ -853,6 +880,18 @@ fn split_config_for_secrets(config: &AppConfigToml) -> (AppConfigToml, AppConfig
         secrets_config.external_calendars = Some(value);
         public_config.external_calendars = None;
     }
+    if let Some(value) = config.ai_key_openai.clone() {
+        secrets_config.ai_key_openai = Some(value);
+        public_config.ai_key_openai = None;
+    }
+    if let Some(value) = config.ai_key_anthropic.clone() {
+        secrets_config.ai_key_anthropic = Some(value);
+        public_config.ai_key_anthropic = None;
+    }
+    if let Some(value) = config.ai_key_gemini.clone() {
+        secrets_config.ai_key_gemini = Some(value);
+        public_config.ai_key_gemini = None;
+    }
 
     (public_config, secrets_config)
 }
@@ -866,6 +905,9 @@ fn config_has_values(config: &AppConfigToml) -> bool {
         || config.cloud_url.is_some()
         || config.cloud_token.is_some()
         || config.external_calendars.is_some()
+        || config.ai_key_openai.is_some()
+        || config.ai_key_anthropic.is_some()
+        || config.ai_key_gemini.is_some()
 }
 
 fn write_config_files(config_path: &Path, secrets_path: &Path, config: &AppConfigToml) -> Result<(), String> {
@@ -1107,6 +1149,35 @@ fn get_db_path_cmd(app: tauri::AppHandle) -> String {
 #[tauri::command]
 fn get_config_path_cmd(app: tauri::AppHandle) -> String {
     get_config_path(&app).to_string_lossy().to_string()
+}
+
+#[tauri::command]
+fn get_ai_key(app: tauri::AppHandle, provider: String) -> Option<String> {
+    let config = read_config(&app);
+    match provider.as_str() {
+        "openai" => config.ai_key_openai,
+        "anthropic" => config.ai_key_anthropic,
+        "gemini" => config.ai_key_gemini,
+        _ => None,
+    }
+}
+
+#[tauri::command]
+fn set_ai_key(app: tauri::AppHandle, provider: String, value: Option<String>) -> Result<(), String> {
+    let config_path = get_config_path(&app);
+    let mut config = read_config(&app);
+    let next_value = value.and_then(|v| {
+        let trimmed = v.trim().to_string();
+        if trimmed.is_empty() { None } else { Some(trimmed) }
+    });
+    match provider.as_str() {
+        "openai" => config.ai_key_openai = next_value,
+        "anthropic" => config.ai_key_anthropic = next_value,
+        "gemini" => config.ai_key_gemini = next_value,
+        _ => return Ok(()),
+    }
+    write_config_files(&config_path, &get_secrets_path(&app), &config)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1504,6 +1575,8 @@ pub fn run() {
             get_data_path_cmd,
             get_db_path_cmd,
             get_config_path_cmd,
+            get_ai_key,
+            set_ai_key,
             get_sync_path,
             set_sync_path,
             get_sync_backend,
