@@ -82,7 +82,6 @@ export default function FocusScreen() {
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={(
           <View style={styles.header}>
-            <Text style={[styles.greeting, { color: tc.text }]}>{t('tab.next')}</Text>
             <Text style={[styles.dateText, { color: tc.secondaryText }]}>
               {format(new Date(), 'EEEE, MMMM do')}
             </Text>
@@ -124,16 +123,11 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   header: {
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 12,
   },
   dateText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.6,

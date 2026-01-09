@@ -907,6 +907,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         }
         node?.getNode?.()?.scrollTo?.({ x, animated });
     }, [containerWidth]);
+    const swipeThreshold = containerWidth ? containerWidth * 0.35 : 0;
 
     useEffect(() => {
         if (!visible || !containerWidth) return;
@@ -1726,6 +1727,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                         snapToInterval={containerWidth || 1}
                         snapToAlignment="start"
                         decelerationRate="fast"
+                        disableIntervalMomentum
                         scrollEventThrottle={16}
                         showsHorizontalScrollIndicator={false}
                         directionalLockEnabled
@@ -1735,7 +1737,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                         onScrollEndDrag={(event) => {
                             if (!containerWidth) return;
                             const offsetX = event.nativeEvent.contentOffset.x;
-                            const target = offsetX >= containerWidth / 2 ? 'view' : 'task';
+                            const target = offsetX >= swipeThreshold ? 'view' : 'task';
                             scrollToTab(target);
                             setModeTab(target);
                         }}
@@ -1748,7 +1750,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                             if (!containerWidth) return;
                             if (!isUserSwipe.current) return;
                             isUserSwipe.current = false;
-                            setModeTab(offsetX >= containerWidth / 2 ? 'view' : 'task');
+                            setModeTab(offsetX >= swipeThreshold ? 'view' : 'task');
                         }}
                     >
                         <TaskEditFormTab
