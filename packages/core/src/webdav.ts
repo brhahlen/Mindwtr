@@ -90,7 +90,7 @@ function isAllowedInsecureUrl(rawUrl: string): boolean {
 
 function assertSecureUrl(url: string) {
     if (!isAllowedInsecureUrl(url)) {
-        throw new Error('WebDAV requires HTTPS (except localhost).');
+        throw new Error('WebDAV requires HTTPS for non-local URLs (HTTP allowed only for localhost).');
     }
 }
 
