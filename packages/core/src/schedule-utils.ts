@@ -38,3 +38,14 @@ export function isDueWithinMinutes(task: Task, minutes: number, now: Date = new 
     const diffMs = next.getTime() - now.getTime();
     return diffMs >= 0 && diffMs <= minutes * 60 * 1000;
 }
+
+export function parseTimeOfDay(value: string | undefined, fallback: { hour: number; minute: number }) {
+    if (!value) return fallback;
+    const [h, m] = value.split(':');
+    const hour = Number.parseInt(h, 10);
+    const minute = Number.parseInt(m, 10);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
+    if (hour < 0 || hour > 23) return fallback;
+    if (minute < 0 || minute > 59) return fallback;
+    return { hour, minute };
+}

@@ -1,4 +1,4 @@
-import { translations, type AppData, type Language, safeParseDate } from '@mindwtr/core';
+import { type AppData, type Language, safeParseDate, SUPPORTED_LANGUAGES, getTranslationsSync, loadTranslations } from '@mindwtr/core';
 
 export const WIDGET_DATA_KEY = 'mindwtr-data';
 export const WIDGET_LANGUAGE_KEY = 'mindwtr-language';
@@ -20,14 +20,13 @@ export interface TasksWidgetPayload {
 
 export function resolveWidgetLanguage(saved: string | null, setting?: string): Language {
     const candidate = setting && setting !== 'system' ? setting : saved;
-    if (candidate === 'zh' || candidate === 'es' || candidate === 'hi' || candidate === 'ar' || candidate === 'de' || candidate === 'ru' || candidate === 'ja' || candidate === 'fr' || candidate === 'pt' || candidate === 'ko' || candidate === 'it' || candidate === 'tr') {
-        return candidate as Language;
-    }
+    if (candidate && SUPPORTED_LANGUAGES.includes(candidate as Language)) return candidate as Language;
     return 'en';
 }
 
 export function buildWidgetPayload(data: AppData, language: Language): TasksWidgetPayload {
-    const tr = translations[language];
+    void loadTranslations(language);
+    const tr = getTranslationsSync(language);
     const tasks = data.tasks || [];
     const now = new Date();
 

@@ -3,7 +3,7 @@
  */
 
 import { Task, TaskStatus, TaskSortBy } from './types';
-import type { Language } from './i18n';
+import type { Language } from './i18n-types';
 
 /**
  * Status sorting order for task list display

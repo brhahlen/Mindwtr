@@ -1,4 +1,4 @@
-import { getNextScheduledAt, translations, type Language, Task, useTaskStore } from '@mindwtr/core';
+import { getNextScheduledAt, type Language, Task, useTaskStore, parseTimeOfDay, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES, getTranslations } from '@mindwtr/core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
@@ -33,9 +33,6 @@ let responseSubscription: Subscription | null = null;
 let storeSubscription: (() => void) | null = null;
 
 let Notifications: NotificationsApi | null = null;
-
-const LANGUAGE_STORAGE_KEY = 'mindwtr-language';
-const SUPPORTED_LANGUAGES: Language[] = ['en', 'zh', 'es', 'hi', 'ar', 'de', 'ru', 'ja', 'fr', 'pt', 'ko', 'it', 'tr'];
 
 const logNotificationError = (message: string, error: unknown) => {
   console.warn(`[Notifications] ${message}`, error);
@@ -78,17 +75,6 @@ async function getCurrentLanguage(): Promise<Language> {
   } catch {
     return 'en';
   }
-}
-
-function parseTimeOfDay(value: string | undefined, fallback: { hour: number; minute: number }) {
-  if (!value) return fallback;
-  const [h, m] = value.split(':');
-  const hour = Number.parseInt(h, 10);
-  const minute = Number.parseInt(m, 10);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
-  if (hour < 0 || hour > 23) return fallback;
-  if (minute < 0 || minute > 59) return fallback;
-  return { hour, minute };
 }
 
 async function ensurePermission(api: NotificationsApi) {
@@ -135,7 +121,7 @@ async function rescheduleDailyDigest(api: NotificationsApi) {
   if (!morningEnabled && !eveningEnabled) return;
 
   const language = await getCurrentLanguage();
-  const tr = translations[language];
+  const tr = await getTranslations(language);
 
   if (morningEnabled) {
     const { hour, minute } = parseTimeOfDay(settings.dailyDigestMorningTime, { hour: 9, minute: 0 });
@@ -187,7 +173,7 @@ async function rescheduleWeeklyReview(api: NotificationsApi) {
   if (!notificationsEnabled || !weeklyReviewEnabled) return;
 
   const language = await getCurrentLanguage();
-  const tr = translations[language];
+  const tr = await getTranslations(language);
   const { hour, minute } = parseTimeOfDay(weeklyReviewTime, { hour: 18, minute: 0 });
   const weekday = weeklyReviewDay + 1; // Expo: 1 = Sunday
 

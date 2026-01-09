@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-import { translations, Language } from '@mindwtr/core';
+import { type Language, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES, loadTranslations } from '@mindwtr/core';
 export type { Language };
 
 interface LanguageContextType {
@@ -11,20 +11,32 @@ interface LanguageContextType {
 
 
 
-const LANGUAGE_STORAGE_KEY = 'mindwtr-language';
-const SUPPORTED_LANGUAGES: Language[] = ['en', 'zh', 'es', 'hi', 'ar', 'de', 'ru', 'ja', 'fr', 'pt', 'ko', 'it', 'tr'];
-
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const [language, setLanguageState] = useState<Language>('en');
+    const [translationsMap, setTranslationsMap] = useState<Record<string, string>>({});
+    const [fallbackTranslations, setFallbackTranslations] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
         if (saved && SUPPORTED_LANGUAGES.includes(saved as Language)) {
             setLanguageState(saved as Language);
         }
+        loadTranslations('en').then(setFallbackTranslations).catch(() => setFallbackTranslations({}));
     }, []);
+
+    useEffect(() => {
+        let active = true;
+        loadTranslations(language).then((map) => {
+            if (active) setTranslationsMap(map);
+        }).catch(() => {
+            if (active) setTranslationsMap({});
+        });
+        return () => {
+            active = false;
+        };
+    }, [language]);
 
     const setLanguage = (lang: Language) => {
         localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
@@ -32,7 +44,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     };
 
     const t = (key: string): string => {
-        return translations[language][key] || translations.en[key] || key;
+        return translationsMap[key] || fallbackTranslations[key] || key;
     };
 
     return (

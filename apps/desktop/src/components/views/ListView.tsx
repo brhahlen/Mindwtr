@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, Play, X, Trash2, Moon, User, CheckCircle, Filter } from 'lucide-react';
+import { Plus, Play, Filter } from 'lucide-react';
 import { useTaskStore, TaskStatus, Task, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, sortTasksBy, Project, parseQuickAdd, matchesHierarchicalToken, safeParseDate, createAIProvider, type AIProviderId } from '@mindwtr/core';
 import type { TaskSortBy } from '@mindwtr/core';
 import { TaskItem } from '../TaskItem';
 import { TaskInput } from '../Task/TaskInput';
 import { cn } from '../../lib/utils';
 import { PromptModal } from '../PromptModal';
+import { InboxProcessingWizard, type ProcessingStep } from '../InboxProcessingWizard';
 import { useLanguage } from '../../contexts/language-context';
 import { useKeybindings } from '../../contexts/keybinding-context';
 import { buildCopilotConfig, loadAIKey } from '../../lib/ai-config';
@@ -15,8 +16,6 @@ interface ListViewProps {
     title: string;
     statusFilter: TaskStatus | 'all';
 }
-
-type ProcessingStep = 'refine' | 'actionable' | 'twomin' | 'decide' | 'context' | 'project' | 'waiting-note';
 
 const EMPTY_PRIORITIES: TaskPriority[] = [];
 const EMPTY_ESTIMATES: TimeEstimate[] = [];
@@ -564,6 +563,10 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         if (start && start > new Date()) return false;
         return true;
     }).length;
+    const remainingInboxCount = useMemo(
+        () => tasks.filter((t) => t.status === 'inbox').length,
+        [tasks]
+    );
     const nextCount = tasks.filter(t => t.status === 'next' && !t.deletedAt).length;
     const isNextView = statusFilter === 'next';
     const NEXT_WARNING_THRESHOLD = 15;
@@ -722,382 +725,50 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                 </button>
             )}
 
-            {/* Inbox Processing Wizard */}
-            {isProcessing && processingTask && (
-                <div className="bg-card border border-border rounded-xl p-6 space-y-4 animate-in fade-in">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-lg">📋 {t('process.title')}</h3>
-                        <button
-                            onClick={() => setIsProcessing(false)}
-                            className="text-muted-foreground hover:text-foreground"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {processingStep === 'refine' ? (
-                        <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                            <div className="space-y-1">
-                                <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.titleLabel')}</label>
-                                <input
-                                    autoFocus
-                                    value={processingTitle}
-                                    onChange={(e) => setProcessingTitle(e.target.value)}
-                                    className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.descriptionLabel')}</label>
-                                <textarea
-                                    value={processingDescription}
-                                    onChange={(e) => setProcessingDescription(e.target.value)}
-                                    placeholder={t('taskEdit.descriptionPlaceholder')}
-                                    className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary resize-none"
-                                    rows={3}
-                                />
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-muted/50 rounded-lg p-4 space-y-1">
-                            <p className="font-medium">{processingTitle || processingTask.title}</p>
-                            {processingDescription && (
-                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{processingDescription}</p>
-                            )}
-                        </div>
-                    )}
-
-                    {processingStep === 'refine' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">{t('process.refineTitle')}</p>
-                            <p className="text-center text-sm text-muted-foreground">{t('process.refineDesc')}</p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setProcessingStep('actionable')}
-                                    className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90"
-                                >
-                                    {t('process.refineNext')}
-                                </button>
-                                <button
-                                    onClick={() => handleNotActionable('trash')}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-destructive/10 text-destructive py-3 rounded-lg font-medium hover:bg-destructive/20"
-                                >
-                                    <Trash2 className="w-4 h-4" /> {t('process.refineDelete')}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {processingStep === 'actionable' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">{t('process.actionable')}</p>
-                            <p className="text-center text-sm text-muted-foreground">
-                                {t('process.actionableDesc')}
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleActionable}
-                                    className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90"
-                                >
-                                    {t('process.yesActionable')}
-                                </button>
-                            </div>
-                            <p className="text-xs text-muted-foreground text-center pt-2">{t('process.ifNotActionable')}</p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => handleNotActionable('trash')}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-destructive/10 text-destructive py-2 rounded-lg font-medium hover:bg-destructive/20"
-                                >
-                                    <Trash2 className="w-4 h-4" /> {t('process.trash')}
-                                </button>
-                                <button
-                                    onClick={() => handleNotActionable('someday')}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-purple-500/10 text-purple-600 py-2 rounded-lg font-medium hover:bg-purple-500/20"
-                                >
-                                    <Moon className="w-4 h-4" /> {t('process.someday')}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {processingStep === 'twomin' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">{t('process.twoMin')}</p>
-                            <p className="text-center text-sm text-muted-foreground">
-                                {t('process.twoMinDesc')}
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleTwoMinDone}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-lg font-medium hover:bg-green-600"
-                                >
-                                    <CheckCircle className="w-4 h-4" /> {t('process.doneIt')}
-                                </button>
-                                <button
-                                    onClick={handleTwoMinNo}
-                                    className="flex-1 bg-muted py-3 rounded-lg font-medium hover:bg-muted/80"
-                                >
-                                    {t('process.takesLonger')}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {processingStep === 'decide' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">{t('process.nextStep')}</p>
-                            <p className="text-center text-sm text-muted-foreground">
-                                {t('process.nextStepDesc')}
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleDefer}
-                                    className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90"
-                                >
-                                    {t('process.doIt')}
-                                </button>
-                                <button
-                                    onClick={handleDelegate}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white py-3 rounded-lg font-medium hover:bg-orange-600"
-                                >
-                                    <User className="w-4 h-4" /> {t('process.delegate')}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {processingStep === 'waiting-note' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">👤 {t('process.waitingFor')}</p>
-                            <p className="text-center text-sm text-muted-foreground">
-                                {t('process.waitingForDesc')}
-                            </p>
-                            <textarea
-                                value={waitingNote}
-                                onChange={(e) => setWaitingNote(e.target.value)}
-                                placeholder={t('process.waitingPlaceholder')}
-                                className="w-full bg-muted border border-border rounded-lg px-3 py-3 text-sm focus:ring-2 focus:ring-primary resize-none"
-                                rows={3}
-                            />
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleConfirmWaiting}
-                                    className="flex-1 py-3 bg-muted text-muted-foreground rounded-lg font-medium hover:bg-muted/80"
-                                >
-                                    {t('common.skip')}
-                                </button>
-                                <button
-                                    onClick={handleConfirmWaiting}
-                                    className="flex-1 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600"
-                                >
-                                    ✓ {t('common.done')}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {processingStep === 'context' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">{t('process.context')}</p>
-                            <p className="text-center text-sm text-muted-foreground">
-                                {t('process.contextDesc')} {t('process.selectMultipleHint')}
-                            </p>
-
-                            {/* Selected contexts display */}
-                            {selectedContexts.length > 0 && (
-                                <div className="flex flex-wrap gap-2 justify-center p-3 bg-primary/10 rounded-lg">
-                                    <span className="text-xs text-primary font-medium">{t('process.selectedLabel')}</span>
-                                    {selectedContexts.map(ctx => (
-                                        <span key={ctx} className="px-2 py-1 bg-primary text-primary-foreground rounded-full text-xs">
-                                            {ctx}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Custom context input */}
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder={t('process.newContextPlaceholder')}
-                                    value={customContext}
-                                    onChange={(e) => setCustomContext(e.target.value)}
-                                    className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            addCustomContext();
-                                        }
-                                    }}
-                                />
-                                <button
-                                    onClick={addCustomContext}
-                                    disabled={!customContext.trim()}
-                                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 disabled:opacity-50"
-                                >
-                                    +
-                                </button>
-                            </div>
-
-                            {/* Existing contexts - toggle selection */}
-                            {allContexts.length > 0 && (
-                                <div className="flex flex-wrap gap-2 justify-center">
-                                    {allContexts.map(ctx => (
-                                        <button
-                                            key={ctx}
-                                            onClick={() => toggleContext(ctx)}
-                                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${selectedContexts.includes(ctx)
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-muted hover:bg-muted/80'
-                                                }`}
-                                        >
-                                            {ctx}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Next button - go to project step */}
-                            <button
-                                onClick={handleConfirmContexts}
-                                className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
-                            >
-                                {selectedContexts.length > 0
-                                    ? `${t('process.next')} → (${selectedContexts.length})`
-                                    : `${t('process.next')} → (${t('process.noContext')})`}
-                            </button>
-                        </div>
-                    )}
-
-                    {processingStep === 'project' && (
-                        <div className="space-y-4">
-                            <p className="text-center font-medium">{t('process.project')}</p>
-                            <p className="text-center text-sm text-muted-foreground">
-                                {t('process.projectDesc')}
-                            </p>
-
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!convertToProject) {
-                                            setProjectTitleDraft(processingTitle);
-                                            setNextActionDraft('');
-                                        }
-                                        setConvertToProject(!convertToProject);
-                                    }}
-                                    className={cn(
-                                        "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                                        convertToProject
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                    )}
-                                >
-                                    {convertToProject ? t('process.useExistingProject') : t('process.makeProject')}
-                                </button>
-                            </div>
-
-                            {convertToProject ? (
-                                <div className="space-y-3">
-                                    <div className="space-y-1">
-                                        <label className="text-xs text-muted-foreground font-medium">{t('projects.title')}</label>
-                                        <input
-                                            value={projectTitleDraft}
-                                            onChange={(e) => setProjectTitleDraft(e.target.value)}
-                                            className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs text-muted-foreground font-medium">{t('process.nextAction')}</label>
-                                        <input
-                                            value={nextActionDraft}
-                                            onChange={(e) => setNextActionDraft(e.target.value)}
-                                            placeholder={t('taskEdit.titleLabel')}
-                                            className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleConvertToProject}
-                                        className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
-                                    >
-                                        {t('process.createProject')}
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="space-y-2">
-                                        <input
-                                            value={projectSearch}
-                                            onChange={(e) => setProjectSearch(e.target.value)}
-                                            onKeyDown={async (e) => {
-                                                if (e.key !== 'Enter') return;
-                                                if (!projectSearch.trim()) return;
-                                                e.preventDefault();
-                                                const title = projectSearch.trim();
-                                                const existing = projects.find((project) => project.title.toLowerCase() === title.toLowerCase());
-                                                if (existing) {
-                                                    handleSetProject(existing.id);
-                                                    return;
-                                                }
-                                                const created = await addProject(title, '#94a3b8');
-                                                handleSetProject(created.id);
-                                                setProjectSearch('');
-                                            }}
-                                            placeholder={t('projects.addPlaceholder')}
-                                            className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-                                        />
-                                        {!hasExactProjectMatch && projectSearch.trim() && (
-                                            <button
-                                                type="button"
-                                                onClick={async () => {
-                                                    const title = projectSearch.trim();
-                                                    if (!title) return;
-                                                    const created = await addProject(title, '#94a3b8');
-                                                    handleSetProject(created.id);
-                                                    setProjectSearch('');
-                                                }}
-                                                className="w-full py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
-                                            >
-                                                {t('projects.create')} "{projectSearch.trim()}"
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* No project option */}
-                                    <button
-                                        onClick={() => handleSetProject(null)}
-                                        className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
-                                    >
-                                        ✓ {t('process.noProject')}
-                                    </button>
-
-                                    {/* Project list */}
-                                    {filteredProjects.length > 0 && (
-                                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                                            {filteredProjects.map(project => (
-                                                <button
-                                                    key={project.id}
-                                                    onClick={() => handleSetProject(project.id)}
-                                                    className="w-full flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 text-left"
-                                                >
-                                                    <div
-                                                        className="w-3 h-3 rounded-full"
-                                                        style={{ backgroundColor: (project.areaId ? areaById.get(project.areaId)?.color : undefined) || '#6B7280' }}
-                                                    />
-                                                    <span>{project.title}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    <p className="text-xs text-center text-muted-foreground pt-2">
-                        {tasks.filter(t => t.status === 'inbox').length} {t('process.remaining')}
-                    </p>
-                </div>
-            )}
+            <InboxProcessingWizard
+                t={t}
+                isProcessing={isProcessing}
+                processingTask={processingTask}
+                processingStep={processingStep}
+                processingTitle={processingTitle}
+                processingDescription={processingDescription}
+                setProcessingTitle={setProcessingTitle}
+                setProcessingDescription={setProcessingDescription}
+                setIsProcessing={setIsProcessing}
+                handleRefineNext={() => setProcessingStep('actionable')}
+                handleNotActionable={handleNotActionable}
+                handleActionable={handleActionable}
+                handleTwoMinDone={handleTwoMinDone}
+                handleTwoMinNo={handleTwoMinNo}
+                handleDefer={handleDefer}
+                handleDelegate={handleDelegate}
+                waitingNote={waitingNote}
+                setWaitingNote={setWaitingNote}
+                handleConfirmWaiting={handleConfirmWaiting}
+                selectedContexts={selectedContexts}
+                allContexts={allContexts}
+                customContext={customContext}
+                setCustomContext={setCustomContext}
+                addCustomContext={addCustomContext}
+                toggleContext={toggleContext}
+                handleConfirmContexts={handleConfirmContexts}
+                convertToProject={convertToProject}
+                setConvertToProject={setConvertToProject}
+                setProjectTitleDraft={setProjectTitleDraft}
+                setNextActionDraft={setNextActionDraft}
+                projectTitleDraft={projectTitleDraft}
+                nextActionDraft={nextActionDraft}
+                handleConvertToProject={handleConvertToProject}
+                projectSearch={projectSearch}
+                setProjectSearch={setProjectSearch}
+                projects={projects}
+                filteredProjects={filteredProjects}
+                addProject={addProject}
+                handleSetProject={handleSetProject}
+                hasExactProjectMatch={hasExactProjectMatch}
+                areaById={areaById}
+                remainingCount={remainingInboxCount}
+            />
 
             {/* Filters */}
             {showFilters && !isProcessing && (

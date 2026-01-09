@@ -1,4 +1,4 @@
-import { getDailyDigestSummary, getNextScheduledAt, stripMarkdown, translations, type Language, Task } from '@mindwtr/core';
+import { getDailyDigestSummary, getNextScheduledAt, stripMarkdown, type Language, Task, parseTimeOfDay, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES, getTranslationsSync, loadTranslations } from '@mindwtr/core';
 import { useTaskStore } from '@mindwtr/core';
 
 const notifiedAtByTask = new Map<string, string>();
@@ -18,8 +18,8 @@ const CHECK_INTERVAL_MS = 15_000;
 
 function getCurrentLanguage(): Language {
     try {
-        const raw = localStorage.getItem('mindwtr-language');
-        if (raw === 'zh' || raw === 'es' || raw === 'hi' || raw === 'ar') return raw as Language;
+        const raw = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+        if (raw && SUPPORTED_LANGUAGES.includes(raw as Language)) return raw as Language;
         return 'en';
     } catch {
         return 'en';
@@ -31,17 +31,6 @@ function localDateKey(date: Date): string {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-}
-
-function parseTimeOfDay(value: string | undefined, fallback: { hour: number; minute: number }) {
-    if (!value) return fallback;
-    const [h, m] = value.split(':');
-    const hour = Number.parseInt(h, 10);
-    const minute = Number.parseInt(m, 10);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
-    if (hour < 0 || hour > 23) return fallback;
-    if (minute < 0 || minute > 59) return fallback;
-    return { hour, minute };
 }
 
 async function loadTauriNotificationApi(): Promise<TauriNotificationApi | null> {
@@ -117,7 +106,8 @@ function checkDueAndNotify() {
 
     const dateKey = localDateKey(now);
     const lang = getCurrentLanguage();
-    const tr = translations[lang];
+    void loadTranslations(lang);
+    const tr = getTranslationsSync(lang);
 
     const morningEnabled = settings.dailyDigestMorningEnabled === true;
     const eveningEnabled = settings.dailyDigestEveningEnabled === true;
@@ -159,6 +149,7 @@ function checkDueAndNotify() {
 }
 
 export async function startDesktopNotifications() {
+    await loadTranslations(getCurrentLanguage());
     await ensurePermission();
     await loadTauriNotificationApi();
 
