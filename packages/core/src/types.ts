@@ -174,5 +174,9 @@ export interface AppData {
         diagnostics?: {
             loggingEnabled?: boolean;
         };
+        migrations?: {
+            version?: number;
+            lastAutoArchiveAt?: string;
+        };
     };
 }
