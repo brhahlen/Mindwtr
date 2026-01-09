@@ -24,7 +24,7 @@ import {
     safeParseDate,
     safeFormatDate,
 } from '@mindwtr/core';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
@@ -34,6 +34,7 @@ import { MarkdownText } from './markdown-text';
 import { buildAIConfig, buildCopilotConfig, loadAIKey } from '../lib/ai-config';
 import { AIResponseModal, type AIResponseAction } from './ai-response-modal';
 import { TaskEditViewTab } from './task-edit/TaskEditViewTab';
+import { TaskEditFormTab } from './task-edit/TaskEditFormTab';
 
 const MAX_SUGGESTED_TAGS = 8;
 
@@ -1740,130 +1741,39 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                             setModeTab(offsetX >= containerWidth / 2 ? 'view' : 'task');
                         }}
                     >
-                        <View style={[styles.tabPage, { width: containerWidth || '100%' }]}>
-                            <KeyboardAvoidingView
-                                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                                style={{ flex: 1 }}
-                                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-                            >
-                                <ScrollView
-                                    style={styles.content}
-                                    contentContainerStyle={styles.contentContainer}
-                                    keyboardShouldPersistTaps="handled"
-                                    nestedScrollEnabled
-                                >
-                                    <View style={styles.formGroup}>
-                                        <Text style={[styles.label, { color: tc.secondaryText }]}>{t('taskEdit.titleLabel')}</Text>
-                                        <TextInput
-                                            style={[styles.input, inputStyle]}
-                                            value={editedTask.title}
-                                            onChangeText={(text) => {
-                                                setEditedTask(prev => ({ ...prev, title: text }));
-                                                resetCopilotDraft();
-                                            }}
-                                            placeholderTextColor={tc.secondaryText}
-                                        />
-                                    </View>
-                                    {aiEnabled && (
-                                        <View style={styles.aiRow}>
-                                            <TouchableOpacity
-                                                style={[styles.aiButton, { backgroundColor: tc.filterBg, borderColor: tc.border }]}
-                                                onPress={handleAIClarify}
-                                                disabled={isAIWorking}
-                                            >
-                                                <Text style={[styles.aiButtonText, { color: tc.tint }]}>{t('taskEdit.aiClarify')}</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={[styles.aiButton, { backgroundColor: tc.filterBg, borderColor: tc.border }]}
-                                                onPress={handleAIBreakdown}
-                                                disabled={isAIWorking}
-                                            >
-                                                <Text style={[styles.aiButtonText, { color: tc.tint }]}>{t('taskEdit.aiBreakdown')}</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                    {aiEnabled && copilotSuggestion && !copilotApplied && (
-                                        <TouchableOpacity
-                                            style={[styles.copilotPill, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
-                                            onPress={applyCopilotSuggestion}
-                                        >
-                                            <Text style={[styles.copilotText, { color: tc.text }]}>
-                                                ✨ {t('copilot.suggested')}{' '}
-                                                {copilotSuggestion.context ? `${copilotSuggestion.context} ` : ''}
-                                                {timeEstimatesEnabled && copilotSuggestion.timeEstimate ? `${copilotSuggestion.timeEstimate}` : ''}
-                                                {copilotSuggestion.tags?.length ? copilotSuggestion.tags.join(' ') : ''}
-                                            </Text>
-                                            <Text style={[styles.copilotHint, { color: tc.secondaryText }]}>
-                                                {t('copilot.applyHint')}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                    {aiEnabled && copilotApplied && (
-                                        <View style={[styles.copilotPill, { borderColor: tc.border, backgroundColor: tc.filterBg }]}>
-                                            <Text style={[styles.copilotText, { color: tc.text }]}>
-                                                ✅ {t('copilot.applied')}{' '}
-                                                {copilotContext ? `${copilotContext} ` : ''}
-                                                {timeEstimatesEnabled && copilotEstimate ? `${copilotEstimate}` : ''}
-                                                {copilotTags.length ? copilotTags.join(' ') : ''}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    {task && (
-                                        <View style={styles.checklistActions}>
-                                            <TouchableOpacity
-                                                style={[styles.checklistActionButton, { backgroundColor: tc.cardBg, borderColor: tc.border }]}
-                                                onPress={handleDuplicateTask}
-                                            >
-                                                <Text style={[styles.checklistActionText, { color: tc.secondaryText }]}>
-                                                    {t('taskEdit.duplicateTask')}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-
-                                    {fieldIdsToRender.map((fieldId) => (
-                                        <React.Fragment key={fieldId}>
-                                            {renderField(fieldId)}
-                                        </React.Fragment>
-                                    ))}
-
-                                    {hasHiddenFields && (
-                                        <TouchableOpacity
-                                            style={[styles.moreOptionsButton, { borderColor: tc.border, backgroundColor: tc.cardBg }]}
-                                            onPress={() => setShowMoreOptions((v) => !v)}
-                                        >
-                                            <Text style={[styles.moreOptionsText, { color: tc.tint }]}>
-                                                {showMoreOptions ? t('taskEdit.hideOptions') : t('taskEdit.moreOptions')}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {/* Add extra padding at bottom for scrolling past keyboard */}
-                                    <View style={{ height: 100 }} />
-
-                                    {showDatePicker && (
-                                        <DateTimePicker
-                                            value={(() => {
-                                                if (showDatePicker === 'start') return getSafePickerDateValue(editedTask.startTime);
-                                                if (showDatePicker === 'start-time') return pendingStartDate ?? getSafePickerDateValue(editedTask.startTime);
-                                                if (showDatePicker === 'review') return getSafePickerDateValue(editedTask.reviewAt);
-                                                if (showDatePicker === 'due-time') return pendingDueDate ?? getSafePickerDateValue(editedTask.dueDate);
-                                                return getSafePickerDateValue(editedTask.dueDate);
-                                            })()}
-                                            mode={
-                                                showDatePicker === 'start-time' || showDatePicker === 'due-time'
-                                                    ? 'time'
-                                                    : (showDatePicker === 'start' || showDatePicker === 'due') && Platform.OS !== 'android'
-                                                        ? 'datetime'
-                                                        : 'date'
-                                            }
-                                            display="default"
-                                            onChange={onDateChange}
-                                        />
-                                    )}
-                                </ScrollView>
-                            </KeyboardAvoidingView>
-                        </View>
+                        <TaskEditFormTab
+                            t={t}
+                            tc={tc}
+                            styles={styles}
+                            inputStyle={inputStyle}
+                            editedTask={editedTask}
+                            setEditedTask={setEditedTask}
+                            resetCopilotDraft={resetCopilotDraft}
+                            aiEnabled={aiEnabled}
+                            isAIWorking={isAIWorking}
+                            handleAIClarify={handleAIClarify}
+                            handleAIBreakdown={handleAIBreakdown}
+                            copilotSuggestion={copilotSuggestion}
+                            copilotApplied={copilotApplied}
+                            applyCopilotSuggestion={applyCopilotSuggestion}
+                            copilotContext={copilotContext}
+                            copilotEstimate={copilotEstimate}
+                            copilotTags={copilotTags}
+                            timeEstimatesEnabled={timeEstimatesEnabled}
+                            task={task}
+                            handleDuplicateTask={handleDuplicateTask}
+                            fieldIdsToRender={fieldIdsToRender}
+                            renderField={renderField}
+                            hasHiddenFields={hasHiddenFields}
+                            showMoreOptions={showMoreOptions}
+                            setShowMoreOptions={setShowMoreOptions}
+                            showDatePicker={showDatePicker}
+                            pendingStartDate={pendingStartDate}
+                            pendingDueDate={pendingDueDate}
+                            getSafePickerDateValue={getSafePickerDateValue}
+                            onDateChange={onDateChange}
+                            containerWidth={containerWidth}
+                        />
                         <View style={[styles.tabPage, { width: containerWidth || '100%' }]}>
                             <TaskEditViewTab
                                 t={t}
