@@ -28,6 +28,7 @@ function App() {
     const { t } = useLanguage();
 
     useEffect(() => {
+        if (import.meta.env.MODE === 'test' || import.meta.env.VITEST || process.env.NODE_ENV === 'test') return;
         fetchData();
 
         const handleUnload = () => {

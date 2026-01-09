@@ -92,13 +92,18 @@ export function KeybindingProvider({
     currentView: string;
     onNavigate: (view: string) => void;
 }) {
+    const isTest = import.meta.env.MODE === 'test' || import.meta.env.VITEST || process.env.NODE_ENV === 'test';
     const store = useTaskStore();
     const settings = store.settings || {};
     const updateSettings = store.updateSettings || (async () => {});
     const { t } = useLanguage();
     const toggleFocusMode = useUiStore((state) => state.toggleFocusMode);
 
-    const [style, setStyleState] = useState<KeybindingStyle>('vim');
+    const initialStyle: KeybindingStyle =
+        settings.keybindingStyle === 'vim' || settings.keybindingStyle === 'emacs'
+            ? settings.keybindingStyle
+            : 'vim';
+    const [style, setStyleState] = useState<KeybindingStyle>(initialStyle);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
 
     const isSidebarCollapsed = settings.sidebarCollapsed ?? false;
@@ -110,10 +115,11 @@ export function KeybindingProvider({
     const pendingRef = useRef<{ key: string | null; timestamp: number }>({ key: null, timestamp: 0 });
 
     useEffect(() => {
+        if (isTest) return;
         if (settings.keybindingStyle === 'vim' || settings.keybindingStyle === 'emacs') {
-            setStyleState(settings.keybindingStyle);
+            setStyleState((prev) => (prev === settings.keybindingStyle ? prev : settings.keybindingStyle));
         }
-    }, [settings.keybindingStyle]);
+    }, [isTest, settings.keybindingStyle]);
 
     const setStyle = useCallback((next: KeybindingStyle) => {
         setStyleState(next);

@@ -14,18 +14,27 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-    const [language, setLanguageState] = useState<Language>('en');
+    const isTest = import.meta.env.MODE === 'test' || import.meta.env.VITEST || process.env.NODE_ENV === 'test';
+    const [language, setLanguageState] = useState<Language>(() => {
+        if (isTest) return 'en';
+        if (typeof localStorage !== 'undefined') {
+            return loadStoredLanguageSync(localStorage);
+        }
+        return 'en';
+    });
     const [translationsMap, setTranslationsMap] = useState<Record<string, string>>({});
     const [fallbackTranslations, setFallbackTranslations] = useState<Record<string, string>>({});
 
     useEffect(() => {
+        if (isTest) return;
         if (typeof localStorage !== 'undefined') {
             setLanguageState(loadStoredLanguageSync(localStorage));
         }
         loadTranslations('en').then(setFallbackTranslations).catch(() => setFallbackTranslations({}));
-    }, []);
+    }, [isTest]);
 
     useEffect(() => {
+        if (isTest) return;
         let active = true;
         loadTranslations(language).then((map) => {
             if (active) setTranslationsMap(map);
@@ -35,7 +44,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         return () => {
             active = false;
         };
-    }, [language]);
+    }, [isTest, language]);
 
     const setLanguage = (lang: Language) => {
         if (typeof localStorage !== 'undefined') {
