@@ -1,5 +1,16 @@
 import type { Task, TaskStatus } from './types';
 
+export const TASK_STATUS_VALUES: TaskStatus[] = ['inbox', 'next', 'waiting', 'someday', 'done', 'archived'];
+export const TASK_STATUS_SET = new Set<TaskStatus>(TASK_STATUS_VALUES);
+export const TASK_STATUS_ORDER: Record<TaskStatus, number> = {
+    inbox: 0,
+    next: 1,
+    waiting: 2,
+    someday: 3,
+    done: 4,
+    archived: 5,
+};
+
 const LEGACY_STATUS_MAP: Record<string, TaskStatus> = {
     todo: 'next',
     planned: 'next',

@@ -3,20 +3,12 @@
  */
 
 import { Task, TaskStatus, TaskSortBy } from './types';
+import { TASK_STATUS_ORDER } from './task-status';
 import type { Language } from './i18n-types';
 
 /**
  * Status sorting order for task list display
  */
-const STATUS_ORDER: Record<TaskStatus, number> = {
-    'inbox': 0,
-    'next': 1,
-    'waiting': 2,
-    'someday': 3,
-    'done': 4,
-    'archived': 5,
-};
-
 /**
  * Standard task colors for each status.
  * Used for badges, borders, and highlights across the app.
@@ -62,8 +54,8 @@ export function rescheduleTask(task: Task, newDueDate?: string): Task {
 export function sortTasks(tasks: Task[]): Task[] {
     return [...tasks].sort((a, b) => {
         // 1. Sort by Status
-        const statusA = STATUS_ORDER[a.status] ?? 99;
-        const statusB = STATUS_ORDER[b.status] ?? 99;
+        const statusA = TASK_STATUS_ORDER[a.status] ?? 99;
+        const statusB = TASK_STATUS_ORDER[b.status] ?? 99;
 
         if (statusA !== statusB) {
             return statusA - statusB;
