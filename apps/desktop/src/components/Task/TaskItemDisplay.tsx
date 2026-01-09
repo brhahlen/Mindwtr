@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Tag, Trash2, ArrowRight, Repeat, Check, Clock, Timer, Paperclip, Pencil, RotateCcw } from 'lucide-react';
+import { Calendar as CalendarIcon, Tag, Trash2, ArrowRight, Repeat, Check, Clock, Timer, Paperclip, Pencil, RotateCcw, Copy } from 'lucide-react';
 import type { Attachment, Project, Task, TaskPriority, TaskStatus, RecurrenceRule, RecurrenceStrategy } from '@mindwtr/core';
 import { getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getTaskUrgency, hasTimeComponent, safeFormatDate, stripMarkdown } from '@mindwtr/core';
 import { cn } from '../../lib/utils';
@@ -13,6 +13,7 @@ interface TaskItemDisplayProps {
     onToggleView: () => void;
     onEdit: () => void;
     onDelete: () => void;
+    onDuplicate: () => void;
     onStatusChange: (status: TaskStatus) => void;
     openAttachment: (attachment: Attachment) => void;
     visibleAttachments: Attachment[];
@@ -61,6 +62,7 @@ export function TaskItemDisplay({
     onToggleView,
     onEdit,
     onDelete,
+    onDuplicate,
     onStatusChange,
     openAttachment,
     visibleAttachments,
@@ -316,15 +318,26 @@ export function TaskItemDisplay({
                     onPointerDown={(e) => e.stopPropagation()}
                 >
                     {readOnly ? (
-                        <button
-                            type="button"
-                            onClick={() => onStatusChange('next')}
-                            aria-label={t('waiting.moveToNext')}
-                            title={t('waiting.moveToNext')}
-                            className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"
-                        >
-                            <RotateCcw className="w-4 h-4" />
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={onDuplicate}
+                                aria-label={t('taskEdit.duplicateTask')}
+                                title={t('taskEdit.duplicateTask')}
+                                className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"
+                            >
+                                <Copy className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onStatusChange('next')}
+                                aria-label={t('waiting.moveToNext')}
+                                title={t('waiting.moveToNext')}
+                                className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"
+                            >
+                                <RotateCcw className="w-4 h-4" />
+                            </button>
+                        </>
                     ) : (
                         <>
                             <button

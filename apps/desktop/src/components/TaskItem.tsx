@@ -846,6 +846,7 @@ export const TaskItem = memo(function TaskItem({
                                 setIsEditing(true);
                             }}
                             onDelete={() => deleteTask(task.id)}
+                            onDuplicate={() => duplicateTask(task.id, false)}
                             onStatusChange={(status) => moveTask(task.id, status)}
                             openAttachment={openAttachment}
                             visibleAttachments={visibleAttachments}
