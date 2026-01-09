@@ -50,7 +50,15 @@ export class SqliteAdapter {
     private async ensureFtsPopulated() {
         const taskCountRow = await this.client.get<{ count?: number }>('SELECT COUNT(*) as count FROM tasks_fts');
         const taskCount = Number(taskCountRow?.count ?? 0);
-        if (taskCount === 0) {
+        const missingTaskRow = await this.client.get<{ count?: number }>(
+            'SELECT COUNT(*) as count FROM tasks WHERE id NOT IN (SELECT id FROM tasks_fts)'
+        );
+        const extraTaskRow = await this.client.get<{ count?: number }>(
+            'SELECT COUNT(*) as count FROM tasks_fts WHERE id NOT IN (SELECT id FROM tasks)'
+        );
+        const needsTaskRebuild = taskCount === 0 || Number(missingTaskRow?.count ?? 0) > 0 || Number(extraTaskRow?.count ?? 0) > 0;
+        if (needsTaskRebuild) {
+            await this.client.run('DELETE FROM tasks_fts');
             await this.client.run(
                 `INSERT INTO tasks_fts (id, title, description, tags, contexts)
                  SELECT id, title, coalesce(description, ''), coalesce(tags, ''), coalesce(contexts, '') FROM tasks`
@@ -59,7 +67,16 @@ export class SqliteAdapter {
 
         const projectCountRow = await this.client.get<{ count?: number }>('SELECT COUNT(*) as count FROM projects_fts');
         const projectCount = Number(projectCountRow?.count ?? 0);
-        if (projectCount === 0) {
+        const missingProjectRow = await this.client.get<{ count?: number }>(
+            'SELECT COUNT(*) as count FROM projects WHERE id NOT IN (SELECT id FROM projects_fts)'
+        );
+        const extraProjectRow = await this.client.get<{ count?: number }>(
+            'SELECT COUNT(*) as count FROM projects_fts WHERE id NOT IN (SELECT id FROM projects)'
+        );
+        const needsProjectRebuild =
+            projectCount === 0 || Number(missingProjectRow?.count ?? 0) > 0 || Number(extraProjectRow?.count ?? 0) > 0;
+        if (needsProjectRebuild) {
+            await this.client.run('DELETE FROM projects_fts');
             await this.client.run(
                 `INSERT INTO projects_fts (id, title, supportNotes, tagIds, areaTitle)
                  SELECT id, title, coalesce(supportNotes, ''), coalesce(tagIds, ''), coalesce(areaTitle, '') FROM projects`
