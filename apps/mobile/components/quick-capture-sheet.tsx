@@ -171,9 +171,12 @@ export function QuickCaptureSheet({ visible, onClose }: { visible: boolean; onCl
           value={dueDate ?? new Date()}
           mode="date"
           display={Platform.OS === 'ios' ? 'inline' : 'default'}
-          onChange={(_, selectedDate) => {
+          onChange={(event, selectedDate) => {
             if (Platform.OS !== 'ios') {
               setShowDatePicker(false);
+              if (event.type !== 'set') {
+                return;
+              }
             }
             if (selectedDate) setDueDate(selectedDate);
           }}
