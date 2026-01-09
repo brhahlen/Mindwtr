@@ -364,7 +364,7 @@ export function TaskList({
 
   const sortOptions: TaskSortBy[] = ['default', 'due', 'start', 'review', 'title', 'created', 'created-desc'];
 
-  const renderTask = ({ item }: { item: Task }) => (
+  const renderTask = useCallback(({ item }: { item: Task }) => (
     <SwipeableTaskItem
       task={item}
       isDark={isDark}
@@ -377,7 +377,18 @@ export function TaskList({
       onDelete={() => deleteTask(item.id)}
       isHighlighted={item.id === highlightTaskId}
     />
-  );
+  ), [
+    deleteTask,
+    enableBulkActions,
+    handleEditTask,
+    highlightTaskId,
+    isDark,
+    multiSelectedIds,
+    selectionMode,
+    themeColors,
+    toggleMultiSelect,
+    updateTask,
+  ]);
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.bg }]}>
@@ -564,6 +575,11 @@ export function TaskList({
         style={styles.list}
         contentContainerStyle={styles.listContent}
         scrollEnabled={scrollEnabled}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={5}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
