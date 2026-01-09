@@ -1,5 +1,5 @@
 import { addDays, addMonths, addWeeks, addYears, endOfDay, isAfter, isBefore, isEqual, parseISO, startOfDay } from 'date-fns';
-import { safeParseDate } from './date';
+import { safeParseDate, safeParseDueDate } from './date';
 import { matchesHierarchicalToken, normalizePrefixedToken } from './hierarchy-utils';
 import { normalizeTaskStatus, TASK_STATUS_SET } from './task-status';
 import type { Project, Task } from './types';
@@ -160,6 +160,25 @@ function matchDateField(dateStr: string | undefined, comparator: SearchComparato
     return compareDates(date, effectiveComparator, target);
 }
 
+function matchDueDateField(dateStr: string | undefined, comparator: SearchComparator | null, value: string, now: Date): boolean {
+    if (!dateStr) return false;
+    const date = safeParseDueDate(dateStr);
+    if (!date) return false;
+
+    const { comparator: cmp, rest } = parseComparator(value);
+    const effectiveComparator = comparator || cmp || '=';
+    const target = parseRelativeDate(rest, now);
+    if (!target) return false;
+
+    if (effectiveComparator === '=') {
+        const start = startOfDay(target);
+        const end = endOfDay(target);
+        return (isAfter(date, start) || isEqual(date, start)) && (isBefore(date, end) || isEqual(date, end));
+    }
+
+    return compareDates(date, effectiveComparator, target);
+}
+
 export function matchesTask(term: SearchTerm, task: Task, projectById: Map<string, Project>, now: Date): boolean {
     if (task.deletedAt) return false;
 
@@ -186,7 +205,7 @@ export function matchesTask(term: SearchTerm, task: Task, projectById: Map<strin
             result = task.projectId === value || (project ? matchesText(project.title, value) : false);
         }
     } else if (DATE_FIELDS.has(field)) {
-        if (field === 'due') result = matchDateField(task.dueDate, term.comparator, value, now);
+        if (field === 'due') result = matchDueDateField(task.dueDate, term.comparator, value, now);
         else if (field === 'start') result = matchDateField(task.startTime, term.comparator, value, now);
         else if (field === 'review') result = matchDateField(task.reviewAt, term.comparator, value, now);
         else if (field === 'created') result = matchDateField(task.createdAt, term.comparator, value, now);

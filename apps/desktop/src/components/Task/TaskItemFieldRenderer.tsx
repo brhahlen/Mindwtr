@@ -2,7 +2,10 @@ import { Check, Link2, Paperclip, Plus, Trash2 } from 'lucide-react';
 import {
     buildRRuleString,
     generateUUID,
+    hasTimeComponent,
     parseRRuleString,
+    safeFormatDate,
+    safeParseDate,
     type Attachment,
     type RecurrenceRule,
     type RecurrenceStrategy,
@@ -208,18 +211,53 @@ export function TaskItemFieldRenderer({
                 </div>
             );
         case 'startTime':
-            return (
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.startDateLabel')}</label>
-                    <input
-                        type="datetime-local"
-                        aria-label="Start time"
-                        value={editStartTime}
-                        onChange={(e) => setEditStartTime(e.target.value)}
-                        className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                    />
-                </div>
-            );
+            {
+                const hasTime = hasTimeComponent(editStartTime);
+                const parsed = editStartTime ? safeParseDate(editStartTime) : null;
+                const dateValue = parsed ? safeFormatDate(parsed, 'yyyy-MM-dd') : '';
+                const timeValue = hasTime && parsed ? safeFormatDate(parsed, 'HH:mm') : '';
+                const handleDateChange = (value: string) => {
+                    if (!value) {
+                        setEditStartTime('');
+                        return;
+                    }
+                    if (hasTime && timeValue) {
+                        setEditStartTime(`${value}T${timeValue}`);
+                        return;
+                    }
+                    setEditStartTime(value);
+                };
+                const handleTimeChange = (value: string) => {
+                    if (!value) {
+                        if (dateValue) setEditStartTime(dateValue);
+                        else setEditStartTime('');
+                        return;
+                    }
+                    const datePart = dateValue || safeFormatDate(new Date(), 'yyyy-MM-dd');
+                    setEditStartTime(`${datePart}T${value}`);
+                };
+                return (
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.startDateLabel')}</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                aria-label="Start date"
+                                value={dateValue}
+                                onChange={(e) => handleDateChange(e.target.value)}
+                                className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
+                            />
+                            <input
+                                type="time"
+                                aria-label="Start time"
+                                value={timeValue}
+                                onChange={(e) => handleTimeChange(e.target.value)}
+                                className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
+                            />
+                        </div>
+                    </div>
+                );
+            }
         case 'reviewAt':
             return (
                 <div className="flex flex-col gap-1">

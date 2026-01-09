@@ -186,9 +186,7 @@ export function TaskEditFormTab({
                             mode={
                                 showDatePicker === 'start-time' || showDatePicker === 'due-time'
                                     ? 'time'
-                                    : (showDatePicker === 'start' || showDatePicker === 'due') && Platform.OS !== 'android'
-                                        ? 'datetime'
-                                        : 'date'
+                                    : 'date'
                             }
                             display="default"
                             onChange={onDateChange}

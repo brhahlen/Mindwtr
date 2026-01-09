@@ -1,6 +1,6 @@
 import { endOfDay, startOfDay } from 'date-fns';
 
-import { safeParseDate } from './date';
+import { safeParseDate, safeParseDueDate } from './date';
 import type { Project, Task } from './types';
 
 export interface DailyDigestSummary {
@@ -31,7 +31,7 @@ export function getDailyDigestSummary(
 
         if (task.isFocusedToday) focusToday += 1;
 
-        const due = safeParseDate(task.dueDate);
+        const due = safeParseDueDate(task.dueDate);
         if (due) {
             const dueTs = due.getTime();
             if (dueTs < dayStart) overdue += 1;

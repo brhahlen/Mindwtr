@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useTaskStore, Task, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, matchesHierarchicalToken, getTaskAgeLabel, getTaskStaleness, type TaskStatus, safeFormatDate, safeParseDate, isDueForReview } from '@mindwtr/core';
+import { useTaskStore, Task, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, matchesHierarchicalToken, getTaskAgeLabel, getTaskStaleness, type TaskStatus, safeFormatDate, safeParseDate, safeParseDueDate, isDueForReview } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { cn } from '../../lib/utils';
 import { Clock, Star, Calendar, AlertCircle, ArrowRight, Filter, Check, type LucideIcon } from 'lucide-react';
@@ -106,12 +106,12 @@ export function AgendaView() {
 
         const overdue = filteredActiveTasks.filter(t => {
             if (!t.dueDate) return false;
-            const dueDate = safeParseDate(t.dueDate);
+            const dueDate = safeParseDueDate(t.dueDate);
             return dueDate && dueDate < now && !t.isFocusedToday;
         });
         const dueToday = filteredActiveTasks.filter(t => {
             if (!t.dueDate) return false;
-            const dueDate = safeParseDate(t.dueDate);
+            const dueDate = safeParseDueDate(t.dueDate);
             return dueDate && dueDate.toDateString() === todayStr &&
                 !t.isFocusedToday;
         });
@@ -144,7 +144,7 @@ export function AgendaView() {
         };
         const parseDue = (value?: string) => {
             if (!value) return Number.POSITIVE_INFINITY;
-            const parsed = safeParseDate(value);
+            const parsed = safeParseDueDate(value);
             return parsed ? parsed.getTime() : Number.POSITIVE_INFINITY;
         };
         const sorted = [...top3Candidates].sort((a, b) => {

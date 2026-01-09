@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'rea
 import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { useTaskStore, isDueForReview, safeParseDate, sortTasksBy, type Task, type TaskSortBy, type TaskStatus } from '@mindwtr/core';
+import { useTaskStore, isDueForReview, safeParseDate, safeParseDueDate, sortTasksBy, type Task, type TaskSortBy, type TaskStatus } from '@mindwtr/core';
 
 import { useTheme } from '../contexts/theme-context';
 import { useLanguage } from '../contexts/language-context';
@@ -54,7 +54,7 @@ function DailyReviewFlow({ onClose }: { onClose: () => void }) {
     const dueTodayTasks = useMemo(() => {
         const dueToday = activeTasks.filter((task) => {
             if (task.status === 'done') return false;
-            const due = safeParseDate(task.dueDate);
+            const due = safeParseDueDate(task.dueDate);
             return due ? isSameDay(due, today) : false;
         });
         return sortTasksBy(dueToday, sortBy);
@@ -64,7 +64,7 @@ function DailyReviewFlow({ onClose }: { onClose: () => void }) {
         const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const overdue = activeTasks.filter((task) => {
             if (task.status === 'done') return false;
-            const due = safeParseDate(task.dueDate);
+            const due = safeParseDueDate(task.dueDate);
             return due ? due < startOfToday : false;
         });
         return sortTasksBy(overdue, sortBy);

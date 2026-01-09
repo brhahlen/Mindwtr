@@ -3,6 +3,7 @@
  */
 
 import { Task, TaskStatus, TaskSortBy } from './types';
+import { safeParseDueDate } from './date';
 import { TASK_STATUS_ORDER } from './task-status';
 import type { Language } from './i18n-types';
 
@@ -26,6 +27,12 @@ const safeTime = (value: string | undefined, fallback: number): number => {
     if (!value) return fallback;
     const parsed = Date.parse(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const safeDueTime = (value: string | undefined, fallback: number): number => {
+    if (!value) return fallback;
+    const parsed = safeParseDueDate(value);
+    return parsed ? parsed.getTime() : fallback;
 };
 
 const shouldIncrementPushCount = (oldDueDate?: string, newDueDate?: string): boolean => {
@@ -62,8 +69,8 @@ export function sortTasks(tasks: Task[]): Task[] {
         }
 
         // 2. Sort by Due Date (tasks with valid due dates first)
-        const dueA = safeTime(a.dueDate, Number.NaN);
-        const dueB = safeTime(b.dueDate, Number.NaN);
+        const dueA = safeDueTime(a.dueDate, Number.NaN);
+        const dueB = safeDueTime(b.dueDate, Number.NaN);
         const hasDueA = Number.isFinite(dueA);
         const hasDueB = Number.isFinite(dueB);
         if (hasDueA && !hasDueB) return -1;
@@ -87,6 +94,7 @@ export function sortTasksBy(tasks: Task[], sortBy: TaskSortBy = 'default'): Task
     const copy = [...tasks];
 
     const timeOrInfinity = (value?: string) => safeTime(value, Infinity);
+    const dueOrInfinity = (value?: string) => safeDueTime(value, Infinity);
     const timeOrZero = (value?: string) => safeTime(value, 0);
 
     switch (sortBy) {
@@ -98,8 +106,8 @@ export function sortTasksBy(tasks: Task[], sortBy: TaskSortBy = 'default'): Task
             });
         case 'due':
             return copy.sort((a, b) => {
-                const aDue = timeOrInfinity(a.dueDate);
-                const bDue = timeOrInfinity(b.dueDate);
+                const aDue = dueOrInfinity(a.dueDate);
+                const bDue = dueOrInfinity(b.dueDate);
                 if (aDue !== bDue) return aDue - bDue;
                 return timeOrZero(a.createdAt) - timeOrZero(b.createdAt);
             });
@@ -190,7 +198,8 @@ export function getTaskUrgency(task: Partial<Task>): 'overdue' | 'urgent' | 'upc
     if (!task.dueDate) return 'normal';
 
     const now = new Date();
-    const due = new Date(task.dueDate);
+    const due = safeParseDueDate(task.dueDate);
+    if (!due) return 'normal';
     const diffHours = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
 
     if (diffHours < 0) return 'overdue';

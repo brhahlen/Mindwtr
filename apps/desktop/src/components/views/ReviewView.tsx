@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createAIProvider, getStaleItems, isDueForReview, safeFormatDate, safeParseDate, sortTasksBy, PRESET_CONTEXTS, type ReviewSuggestion, useTaskStore, type Project, type Task, type TaskStatus, type TaskSortBy, type AIProviderId } from '@mindwtr/core';
+import { createAIProvider, getStaleItems, isDueForReview, safeFormatDate, safeParseDate, safeParseDueDate, sortTasksBy, PRESET_CONTEXTS, type ReviewSuggestion, useTaskStore, type Project, type Task, type TaskStatus, type TaskSortBy, type AIProviderId } from '@mindwtr/core';
 import { Archive, ArrowRight, Calendar, Check, CheckSquare, Layers, RefreshCw, Sparkles, Star, X, type LucideIcon } from 'lucide-react';
 
 import { TaskItem } from '../TaskItem';
@@ -47,7 +47,7 @@ function WeeklyReviewGuideModal({ onClose }: { onClose: () => void }) {
 
         tasks.forEach((task) => {
             if (task.deletedAt) return;
-            const dueDate = safeParseDate(task.dueDate);
+            const dueDate = safeParseDueDate(task.dueDate);
             if (dueDate) entries.push({ task, date: dueDate, kind: 'due' });
             const startTime = safeParseDate(task.startTime);
             if (startTime) entries.push({ task, date: startTime, kind: 'start' });
@@ -574,16 +574,16 @@ function DailyReviewGuideModal({ onClose }: { onClose: () => void }) {
     const dueTodayTasks = activeTasks.filter((task) => {
         if (task.status === 'done') return false;
         if (!task.dueDate) return false;
-        const due = new Date(task.dueDate);
-        if (Number.isNaN(due.getTime())) return false;
+        const due = safeParseDueDate(task.dueDate);
+        if (!due) return false;
         return isSameDay(due, today);
     });
 
     const overdueTasks = activeTasks.filter((task) => {
         if (task.status === 'done') return false;
         if (!task.dueDate) return false;
-        const due = new Date(task.dueDate);
-        if (Number.isNaN(due.getTime())) return false;
+        const due = safeParseDueDate(task.dueDate);
+        if (!due) return false;
         return due < startOfToday;
     });
 
@@ -602,7 +602,7 @@ function DailyReviewGuideModal({ onClose }: { onClose: () => void }) {
         activeTasks.forEach((task) => {
             if (task.status === 'done') return;
             if (task.isFocusedToday) addCandidate(task);
-            const due = task.dueDate ? safeParseDate(task.dueDate) : null;
+            const due = task.dueDate ? safeParseDueDate(task.dueDate) : null;
             if (due && (due < now || due.toDateString() === todayStr)) {
                 addCandidate(task);
                 return;

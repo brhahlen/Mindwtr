@@ -54,6 +54,26 @@ export function safeParseDate(dateStr: string | undefined | null): Date | null {
 }
 
 /**
+ * Returns true if the provided date string includes an explicit time component.
+ */
+export function hasTimeComponent(dateStr: string | undefined | null): boolean {
+    if (!dateStr) return false;
+    return /[T\s]\d{2}:\d{2}/.test(dateStr);
+}
+
+/**
+ * Parses a due date string. If no time component is present, treat it as end-of-day.
+ */
+export function safeParseDueDate(dateStr: string | undefined | null): Date | null {
+    const parsed = safeParseDate(dateStr);
+    if (!parsed) return null;
+    if (!hasTimeComponent(dateStr)) {
+        parsed.setHours(23, 59, 59, 999);
+    }
+    return parsed;
+}
+
+/**
  * Returns true when the review date is set and due at or before the provided time.
  */
 export function isDueForReview(reviewAt: string | Date | undefined | null, now: Date = new Date()): boolean {

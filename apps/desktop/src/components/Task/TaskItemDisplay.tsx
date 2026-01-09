@@ -1,6 +1,6 @@
 import { Calendar as CalendarIcon, Tag, Trash2, ArrowRight, Repeat, Check, Clock, Timer, Paperclip, Pencil } from 'lucide-react';
 import type { Attachment, Project, Task, TaskPriority, TaskStatus, RecurrenceRule, RecurrenceStrategy } from '@mindwtr/core';
-import { getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getTaskUrgency, safeFormatDate, stripMarkdown } from '@mindwtr/core';
+import { getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getTaskUrgency, hasTimeComponent, safeFormatDate, stripMarkdown } from '@mindwtr/core';
 import { cn } from '../../lib/utils';
 
 interface TaskItemDisplayProps {
@@ -180,7 +180,7 @@ export function TaskItemDisplay({
                             {task.startTime && (
                                 <div className="flex items-center gap-1 text-blue-500/80" title={t('taskEdit.startDateLabel')}>
                                     <ArrowRight className="w-3 h-3" />
-                                    {safeFormatDate(task.startTime, 'MMM d, HH:mm')}
+                                    {safeFormatDate(task.startTime, hasTimeComponent(task.startTime) ? 'MMM d, HH:mm' : 'MMM d')}
                                 </div>
                             )}
                             {task.dueDate && (
@@ -189,7 +189,7 @@ export function TaskItemDisplay({
                                     title={t('taskEdit.dueDateLabel')}
                                 >
                                     <CalendarIcon className="w-3 h-3" />
-                                    {safeFormatDate(task.dueDate, 'MMM d, HH:mm')}
+                                    {safeFormatDate(task.dueDate, hasTimeComponent(task.dueDate) ? 'MMM d, HH:mm' : 'MMM d')}
                                     {isStagnant && (
                                         <span
                                             className="ml-1 text-[10px] text-muted-foreground"

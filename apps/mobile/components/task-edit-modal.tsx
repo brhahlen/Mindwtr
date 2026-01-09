@@ -21,7 +21,10 @@ import {
     buildRRuleString,
     parseRRuleString,
     RECURRENCE_RULES,
+    hasTimeComponent,
+    safeFormatDate,
     safeParseDate,
+    safeParseDueDate,
 } from '@mindwtr/core';
 import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -608,28 +611,25 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         if (!selectedDate) return;
 
         if (currentMode === 'start') {
-            if (Platform.OS !== 'android') {
-                setEditedTask(prev => ({ ...prev, startTime: selectedDate.toISOString() }));
-                return;
-            }
-
-            const existing = editedTask.startTime ? new Date(editedTask.startTime) : null;
-            const preserveTime = existing && !Number.isNaN(existing.getTime());
-            const next = new Date(selectedDate);
-            if (preserveTime) {
-                next.setHours(existing!.getHours(), existing!.getMinutes(), 0, 0);
+            const dateOnly = safeFormatDate(selectedDate, 'yyyy-MM-dd');
+            const existing = editedTask.startTime && hasTimeComponent(editedTask.startTime)
+                ? safeParseDate(editedTask.startTime)
+                : null;
+            if (existing) {
+                const combined = new Date(selectedDate);
+                combined.setHours(existing.getHours(), existing.getMinutes(), 0, 0);
+                setPendingStartDate(combined);
+                setEditedTask(prev => ({ ...prev, startTime: combined.toISOString() }));
             } else {
-                next.setHours(9, 0, 0, 0);
+                setPendingStartDate(new Date(selectedDate));
+                setEditedTask(prev => ({ ...prev, startTime: dateOnly }));
             }
-
-            setPendingStartDate(next);
-            setEditedTask(prev => ({ ...prev, startTime: next.toISOString() }));
-            setShowDatePicker('start-time');
+            if (Platform.OS === 'android') setShowDatePicker(null);
             return;
         }
 
         if (currentMode === 'start-time') {
-            const base = pendingStartDate ?? (editedTask.startTime ? new Date(editedTask.startTime) : new Date());
+            const base = pendingStartDate ?? safeParseDate(editedTask.startTime) ?? new Date();
             const combined = new Date(base);
             combined.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
             setEditedTask(prev => ({ ...prev, startTime: combined.toISOString() }));
@@ -645,30 +645,25 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         }
 
         if (currentMode === 'due') {
-            // iOS supports `datetime`; Android does not.
-            if (Platform.OS !== 'android') {
-                setEditedTask(prev => ({ ...prev, dueDate: selectedDate.toISOString() }));
-                return;
-            }
-
-            const existing = editedTask.dueDate ? new Date(editedTask.dueDate) : null;
-            const preserveTime = existing && !Number.isNaN(existing.getTime()) && (existing.getHours() !== 0 || existing.getMinutes() !== 0);
-            const next = new Date(selectedDate);
-            if (preserveTime) {
-                next.setHours(existing!.getHours(), existing!.getMinutes(), 0, 0);
+            const dateOnly = safeFormatDate(selectedDate, 'yyyy-MM-dd');
+            const existing = editedTask.dueDate && hasTimeComponent(editedTask.dueDate)
+                ? safeParseDate(editedTask.dueDate)
+                : null;
+            if (existing) {
+                const combined = new Date(selectedDate);
+                combined.setHours(existing.getHours(), existing.getMinutes(), 0, 0);
+                setPendingDueDate(combined);
+                setEditedTask(prev => ({ ...prev, dueDate: combined.toISOString() }));
             } else {
-                next.setHours(0, 0, 0, 0);
+                setPendingDueDate(new Date(selectedDate));
+                setEditedTask(prev => ({ ...prev, dueDate: dateOnly }));
             }
-
-            setPendingDueDate(next);
-            // Set date immediately (time is optional); then allow user to adjust time.
-            setEditedTask(prev => ({ ...prev, dueDate: next.toISOString() }));
-            setShowDatePicker('due-time');
+            if (Platform.OS === 'android') setShowDatePicker(null);
             return;
         }
 
         // due-time (Android) - combine pending date with chosen time.
-        const base = pendingDueDate ?? (editedTask.dueDate ? new Date(editedTask.dueDate) : new Date());
+        const base = pendingDueDate ?? safeParseDate(editedTask.dueDate) ?? new Date();
         const combined = new Date(base);
         combined.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
         setEditedTask(prev => ({ ...prev, dueDate: combined.toISOString() }));
@@ -678,16 +673,16 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return t('common.notSet');
-        const parsed = new Date(dateStr);
-        if (Number.isNaN(parsed.getTime())) return t('common.notSet');
+        const parsed = safeParseDate(dateStr);
+        if (!parsed) return t('common.notSet');
         return parsed.toLocaleDateString();
     };
 
     const formatStartDateTime = (dateStr?: string) => {
         if (!dateStr) return t('common.notSet');
-        const parsed = new Date(dateStr);
-        if (Number.isNaN(parsed.getTime())) return t('common.notSet');
-        const hasTime = parsed.getHours() !== 0 || parsed.getMinutes() !== 0;
+        const parsed = safeParseDate(dateStr);
+        if (!parsed) return t('common.notSet');
+        const hasTime = hasTimeComponent(dateStr);
         if (!hasTime) return parsed.toLocaleDateString();
         return parsed.toLocaleString(undefined, {
             year: 'numeric',
@@ -700,9 +695,9 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const formatDueDate = (dateStr?: string) => {
         if (!dateStr) return t('common.notSet');
-        const parsed = new Date(dateStr);
-        if (Number.isNaN(parsed.getTime())) return t('common.notSet');
-        const hasTime = parsed.getHours() !== 0 || parsed.getMinutes() !== 0;
+        const parsed = safeParseDueDate(dateStr);
+        if (!parsed) return t('common.notSet');
+        const hasTime = hasTimeComponent(dateStr);
         if (!hasTime) return parsed.toLocaleDateString();
         return parsed.toLocaleString(undefined, {
             year: 'numeric',
@@ -715,8 +710,8 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const getSafePickerDateValue = (dateStr?: string) => {
         if (!dateStr) return new Date();
-        const parsed = new Date(dateStr);
-        if (Number.isNaN(parsed.getTime())) return new Date();
+        const parsed = safeParseDate(dateStr);
+        if (!parsed) return new Date();
         return parsed;
     };
 
@@ -1438,10 +1433,26 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                 return (
                     <View style={styles.formGroup}>
                         <Text style={[styles.label, { color: tc.secondaryText }]}>{t('taskEdit.startDateLabel')}</Text>
+                        {(() => {
+                            const parsed = editedTask.startTime ? safeParseDate(editedTask.startTime) : null;
+                            const hasTime = hasTimeComponent(editedTask.startTime);
+                            const dateOnly = parsed ? safeFormatDate(parsed, 'yyyy-MM-dd') : '';
+                            const timeOnly = hasTime && parsed ? safeFormatDate(parsed, 'HH:mm') : '';
+                            return (
                         <View style={styles.dateRow}>
                             <TouchableOpacity style={[styles.dateBtn, styles.flex1, { backgroundColor: tc.inputBg, borderColor: tc.border }]} onPress={() => setShowDatePicker('start')}>
                                 <Text style={{ color: tc.text }}>{formatStartDateTime(editedTask.startTime)}</Text>
                             </TouchableOpacity>
+                            {!!editedTask.startTime && (
+                                <TouchableOpacity
+                                    style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
+                                    onPress={() => setShowDatePicker('start-time')}
+                                >
+                                    <Text style={[styles.clearDateText, { color: tc.secondaryText }]}>
+                                        {hasTime && timeOnly ? timeOnly : (t('calendar.changeTime') || 'Add time')}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                             {!!editedTask.startTime && (
                                 <TouchableOpacity
                                     style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
@@ -1451,16 +1462,34 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                                 </TouchableOpacity>
                             )}
                         </View>
+                            );
+                        })()}
                     </View>
                 );
             case 'dueDate':
                 return (
                     <View style={styles.formGroup}>
                         <Text style={[styles.label, { color: tc.secondaryText }]}>{t('taskEdit.dueDateLabel')}</Text>
+                        {(() => {
+                            const parsed = editedTask.dueDate ? safeParseDate(editedTask.dueDate) : null;
+                            const hasTime = hasTimeComponent(editedTask.dueDate);
+                            const dateOnly = parsed ? safeFormatDate(parsed, 'yyyy-MM-dd') : '';
+                            const timeOnly = hasTime && parsed ? safeFormatDate(parsed, 'HH:mm') : '';
+                            return (
                         <View style={styles.dateRow}>
                             <TouchableOpacity style={[styles.dateBtn, styles.flex1, { backgroundColor: tc.inputBg, borderColor: tc.border }]} onPress={() => setShowDatePicker('due')}>
                                 <Text style={{ color: tc.text }}>{formatDueDate(editedTask.dueDate)}</Text>
                             </TouchableOpacity>
+                            {!!editedTask.dueDate && (
+                                <TouchableOpacity
+                                    style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
+                                    onPress={() => setShowDatePicker('due-time')}
+                                >
+                                    <Text style={[styles.clearDateText, { color: tc.secondaryText }]}>
+                                        {hasTime && timeOnly ? timeOnly : (t('calendar.changeTime') || 'Add time')}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                             {!!editedTask.dueDate && (
                                 <TouchableOpacity
                                     style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
@@ -1470,6 +1499,8 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                                 </TouchableOpacity>
                             )}
                         </View>
+                            );
+                        })()}
                     </View>
                 );
             case 'reviewAt':

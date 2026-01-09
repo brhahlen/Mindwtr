@@ -2,6 +2,7 @@ import { Alert, View, Text, Pressable, TextInput, StyleSheet } from 'react-nativ
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   safeParseDate,
+  safeParseDueDate,
   translateText,
   type ExternalCalendarEvent,
   type ExternalCalendarSubscription,
@@ -106,7 +107,7 @@ export function CalendarView() {
   const getDeadlinesForDate = (date: Date): Task[] => {
     return tasks.filter((task) => {
       if (!task.dueDate) return false;
-      const dueDate = safeParseDate(task.dueDate);
+      const dueDate = safeParseDueDate(task.dueDate);
       return dueDate && isSameDay(dueDate, date);
     });
   };

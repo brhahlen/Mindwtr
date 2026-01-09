@@ -1,6 +1,6 @@
 import { View, Text, Pressable, StyleSheet, Modal, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { useTaskStore, Task, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getStatusColor, safeFormatDate, safeParseDate, TaskStatus, Project } from '@mindwtr/core';
+import { useTaskStore, Task, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getStatusColor, hasTimeComponent, safeFormatDate, safeParseDueDate, TaskStatus, Project } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { ThemeColors } from '../hooks/use-theme-colors';
@@ -145,9 +145,9 @@ export function SwipeableTaskItem({
     })();
 
     const dueLabel = (() => {
-        const due = safeParseDate(task.dueDate);
+        const due = safeParseDueDate(task.dueDate);
         if (!due) return null;
-        const hasTime = due.getHours() !== 0 || due.getMinutes() !== 0;
+        const hasTime = hasTimeComponent(task.dueDate);
         return safeFormatDate(due, hasTime ? 'Pp' : 'P');
     })();
     const isStagnant = (task.pushCount ?? 0) > 3;

@@ -1,5 +1,5 @@
 import type { FormEvent, ReactNode } from 'react';
-import type { ClarifyResponse, Project, TaskEditorFieldId, TimeEstimate } from '@mindwtr/core';
+import { hasTimeComponent, safeFormatDate, safeParseDate, type ClarifyResponse, type Project, type TaskEditorFieldId, type TimeEstimate } from '@mindwtr/core';
 import { ProjectSelector } from '../ui/ProjectSelector';
 import { TaskInput } from './TaskInput';
 
@@ -88,6 +88,32 @@ export function TaskItemEditor({
     onCancel,
     onSubmit,
 }: TaskItemEditorProps) {
+    const dueHasTime = hasTimeComponent(editDueDate);
+    const dueParsed = editDueDate ? safeParseDate(editDueDate) : null;
+    const dueDateValue = dueParsed ? safeFormatDate(dueParsed, 'yyyy-MM-dd') : '';
+    const dueTimeValue = dueHasTime && dueParsed ? safeFormatDate(dueParsed, 'HH:mm') : '';
+
+    const handleDueDateChange = (value: string) => {
+        if (!value) {
+            setEditDueDate('');
+            return;
+        }
+        if (dueHasTime && dueTimeValue) {
+            setEditDueDate(`${value}T${dueTimeValue}`);
+            return;
+        }
+        setEditDueDate(value);
+    };
+
+    const handleDueTimeChange = (value: string) => {
+        if (!value) {
+            if (dueDateValue) setEditDueDate(dueDateValue);
+            else setEditDueDate('');
+            return;
+        }
+        const datePart = dueDateValue || safeFormatDate(new Date(), 'yyyy-MM-dd');
+        setEditDueDate(`${datePart}T${value}`);
+    };
     return (
         <form
             onSubmit={onSubmit}
@@ -239,13 +265,22 @@ export function TaskItemEditor({
                 )}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.dueDateLabel')}</label>
-                    <input
-                        type="datetime-local"
-                        aria-label="Deadline"
-                        value={editDueDate}
-                        onChange={(e) => setEditDueDate(e.target.value)}
-                        className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                    />
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            aria-label="Deadline date"
+                            value={dueDateValue}
+                            onChange={(e) => handleDueDateChange(e.target.value)}
+                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
+                        />
+                        <input
+                            type="time"
+                            aria-label="Deadline time"
+                            value={dueTimeValue}
+                            onChange={(e) => handleDueTimeChange(e.target.value)}
+                            className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
+                        />
+                    </div>
                 </div>
             </div>
             <div>

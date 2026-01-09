@@ -16,6 +16,7 @@ import {
     parseRRuleString,
     generateUUID,
     getStatusColor,
+    hasTimeComponent,
     Project,
     safeFormatDate,
     safeParseDate,
@@ -70,6 +71,9 @@ function toDateTimeLocalValue(dateStr: string | undefined): string {
     if (!dateStr) return '';
     const parsed = safeParseDate(dateStr);
     if (!parsed) return dateStr;
+    if (!hasTimeComponent(dateStr)) {
+        return safeFormatDate(parsed, 'yyyy-MM-dd', dateStr);
+    }
     return safeFormatDate(parsed, "yyyy-MM-dd'T'HH:mm", dateStr);
 }
 

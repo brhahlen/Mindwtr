@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, eachDayOfInterval } from 'date-fns';
-import { parseIcs, safeParseDate, type ExternalCalendarEvent, type ExternalCalendarSubscription, useTaskStore, type Task } from '@mindwtr/core';
+import { parseIcs, safeParseDate, safeParseDueDate, type ExternalCalendarEvent, type ExternalCalendarSubscription, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { isTauriRuntime } from '../../lib/runtime';
 import { ExternalCalendarService } from '../../lib/external-calendar-service';
@@ -36,7 +36,7 @@ export function CalendarView() {
         const map = new Map<string, Task[]>();
         for (const task of tasks) {
             if (!task.dueDate) continue;
-            const dueDate = safeParseDate(task.dueDate);
+            const dueDate = safeParseDueDate(task.dueDate);
             if (!dueDate) continue;
             const key = dayKey(dueDate);
             const existing = map.get(key);

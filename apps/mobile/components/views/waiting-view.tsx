@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { useTaskStore } from '@mindwtr/core';
+import { safeParseDueDate, useTaskStore } from '@mindwtr/core';
 import { useEffect, useRef, useState } from 'react';
 import type { Task, TaskStatus } from '@mindwtr/core';
 import { useTheme } from '../../contexts/theme-context';
@@ -25,7 +25,9 @@ export function WaitingView() {
       if (a.dueDate && !b.dueDate) return -1;
       if (!a.dueDate && b.dueDate) return 1;
       if (a.dueDate && b.dueDate) {
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        const aDue = safeParseDueDate(a.dueDate);
+        const bDue = safeParseDueDate(b.dueDate);
+        if (aDue && bDue) return aDue.getTime() - bDue.getTime();
       }
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });

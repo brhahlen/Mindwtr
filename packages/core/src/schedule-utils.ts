@@ -1,5 +1,5 @@
 import { isAfter } from 'date-fns';
-import { safeParseDate } from './date';
+import { safeParseDate, safeParseDueDate } from './date';
 import type { Task } from './types';
 
 /**
@@ -12,7 +12,7 @@ export function getNextScheduledAt(task: Task, now: Date = new Date()): Date | n
 
     const candidates: Date[] = [];
     const start = safeParseDate(task.startTime);
-    const due = safeParseDate(task.dueDate);
+    const due = safeParseDueDate(task.dueDate);
 
     if (start && isAfter(start, now)) candidates.push(start);
     if (due && isAfter(due, now)) candidates.push(due);

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, SectionList, StyleSheet } from 'react-native';
 import { format } from 'date-fns';
 
-import { useTaskStore, safeParseDate, type Task, type TaskStatus } from '@mindwtr/core';
+import { useTaskStore, safeParseDate, safeParseDueDate, type Task, type TaskStatus } from '@mindwtr/core';
 import { SwipeableTaskItem } from '@/components/swipeable-task-item';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useTheme } from '../../../contexts/theme-context';
@@ -24,7 +24,7 @@ export default function FocusScreen() {
     const scheduleItems = tasks.filter((task) => {
       if (task.deletedAt) return false;
       if (task.status === 'done') return false;
-      const due = safeParseDate(task.dueDate);
+      const due = safeParseDueDate(task.dueDate);
       const start = safeParseDate(task.startTime);
       return Boolean(task.isFocusedToday)
         || Boolean(due && due <= endOfToday)
