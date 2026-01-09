@@ -22,6 +22,7 @@ export interface SwipeableTaskItemProps {
     onToggleSelect?: () => void;
     isHighlighted?: boolean;
     showFocusToggle?: boolean;
+    hideStatusBadge?: boolean;
 }
 
 /**
@@ -46,6 +47,7 @@ export function SwipeableTaskItem({
     onToggleSelect,
     isHighlighted = false,
     showFocusToggle = false,
+    hideStatusBadge = false,
 }: SwipeableTaskItemProps) {
     const swipeableRef = useRef<Swipeable>(null);
     const ignorePressUntil = useRef<number>(0);
@@ -228,7 +230,10 @@ export function SwipeableTaskItem({
                     )}
                     <View style={styles.taskContent}>
                         <View style={styles.titleRow}>
-                            <Text style={[styles.taskTitle, { color: tc.text }]} numberOfLines={2}>
+                            <Text
+                                style={[styles.taskTitle, { color: tc.text }, showFocusToggle && styles.taskTitleFlex]}
+                                numberOfLines={2}
+                            >
                                 {task.title}
                             </Text>
                             {showFocusToggle && !selectionMode && (
@@ -408,26 +413,28 @@ export function SwipeableTaskItem({
                             </View>
                         )}
                     </View>
-                    <Pressable
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            setShowStatusMenu(true);
-                        }}
-                        style={[
-                            styles.statusBadge,
-                            { backgroundColor: getStatusColor(task.status).text }
-                        ]}
-                        accessibilityLabel={`Change status. Current status: ${task.status}`}
-                        accessibilityHint="Double tap to open status menu"
-                        accessibilityRole="button"
-                    >
-                        <Text style={[
-                            styles.statusText,
-                            styles.textLight
-                        ]}>
-                            {t(`status.${task.status}`)}
-                        </Text>
-                    </Pressable>
+                    {!hideStatusBadge && (
+                        <Pressable
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                setShowStatusMenu(true);
+                            }}
+                            style={[
+                                styles.statusBadge,
+                                { backgroundColor: getStatusColor(task.status).text }
+                            ]}
+                            accessibilityLabel={`Change status. Current status: ${task.status}`}
+                            accessibilityHint="Double tap to open status menu"
+                            accessibilityRole="button"
+                        >
+                            <Text style={[
+                                styles.statusText,
+                                styles.textLight
+                            ]}>
+                                {t(`status.${task.status}`)}
+                            </Text>
+                        </Pressable>
+                    )}
                 </Pressable>
             </Swipeable>
 
@@ -509,6 +516,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 4,
+    },
+    taskTitleFlex: {
+        flex: 1,
     },
     focusButton: {
         paddingHorizontal: 6,

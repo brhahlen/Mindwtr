@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, SectionList, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
@@ -8,6 +8,7 @@ import { SwipeableTaskItem } from '@/components/swipeable-task-item';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useTheme } from '../../../contexts/theme-context';
 import { useLanguage } from '../../../contexts/language-context';
+import { TaskEditModal } from '@/components/task-edit-modal';
 
 export default function FocusScreen() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function FocusScreen() {
   const { isDark } = useTheme();
   const { t } = useLanguage();
   const tc = useThemeColors();
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const { schedule, nextActions } = useMemo(() => {
     const now = new Date();
@@ -46,16 +49,26 @@ export default function FocusScreen() {
     { title: t('focus.nextActions') ?? t('list.next'), data: nextActions, type: 'next' as const },
   ]), [schedule, nextActions, t]);
 
+  const onEdit = useCallback((task: Task) => {
+    setEditingTask(task);
+    setIsModalVisible(true);
+  }, []);
+
+  const onSaveTask = useCallback((taskId: string, updates: Partial<Task>) => {
+    updateTask(taskId, updates);
+  }, [updateTask]);
+
   const renderItem = ({ item }: { item: Task }) => (
     <View style={styles.itemWrapper}>
       <SwipeableTaskItem
         task={item}
         isDark={isDark}
         tc={tc}
-        onPress={() => router.push(`/check-focus?id=${item.id}`)}
+        onPress={() => onEdit(item)}
         onStatusChange={(status) => updateTask(item.id, { status: status as TaskStatus })}
         onDelete={() => deleteTask(item.id)}
         showFocusToggle
+        hideStatusBadge
       />
     </View>
   );
@@ -90,6 +103,13 @@ export default function FocusScreen() {
             <Text style={[styles.emptySubtitle, { color: tc.secondaryText }]}>{t('agenda.noTasks')}</Text>
           </View>
         }
+      />
+      <TaskEditModal
+        visible={isModalVisible}
+        task={editingTask}
+        onClose={() => setIsModalVisible(false)}
+        onSave={onSaveTask}
+        defaultTab="view"
       />
     </View>
   );
