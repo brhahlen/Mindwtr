@@ -122,6 +122,7 @@ export const TaskItem = memo(function TaskItem({
     const [editDueDate, setEditDueDate] = useState(toDateTimeLocalValue(task.dueDate));
     const [editStartTime, setEditStartTime] = useState(toDateTimeLocalValue(task.startTime));
     const [editProjectId, setEditProjectId] = useState(task.projectId || '');
+    const [editStatus, setEditStatus] = useState<TaskStatus>(task.status);
     const [editContexts, setEditContexts] = useState(task.contexts?.join(', ') || '');
     const [editTags, setEditTags] = useState(task.tags?.join(', ') || '');
     const [editDescription, setEditDescription] = useState(task.description || '');
@@ -382,6 +383,7 @@ export const TaskItem = memo(function TaskItem({
                 visibleEditAttachments,
                 editStartTime,
                 editReviewAt,
+                editStatus,
                 editPriority,
                 editRecurrence,
                 editRecurrenceStrategy,
@@ -404,7 +406,7 @@ export const TaskItem = memo(function TaskItem({
                 removeAttachment,
                 setEditStartTime,
                 setEditReviewAt,
-                handleStatusChange,
+                setEditStatus,
                 setEditPriority,
                 setEditRecurrence,
                 setEditRecurrenceStrategy,
@@ -483,15 +485,12 @@ export const TaskItem = memo(function TaskItem({
         );
     };
 
-    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        moveTask(task.id, e.target.value as TaskStatus);
-    };
-
     const resetEditState = () => {
         setEditTitle(task.title);
         setEditDueDate(toDateTimeLocalValue(task.dueDate));
         setEditStartTime(toDateTimeLocalValue(task.startTime));
         setEditProjectId(task.projectId || '');
+        setEditStatus(task.status);
         setEditContexts(task.contexts?.join(', ') || '');
         setEditTags(task.tags?.join(', ') || '');
         setEditDescription(task.description || '');
@@ -717,6 +716,7 @@ export const TaskItem = memo(function TaskItem({
             }
             updateTask(task.id, {
                 title: editTitle,
+                status: editStatus,
                 dueDate: editDueDate || undefined,
                 startTime: editStartTime || undefined,
                 projectId: editProjectId || undefined,

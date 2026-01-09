@@ -1,4 +1,3 @@
-import type { ChangeEvent } from 'react';
 import { Check, Link2, Paperclip, Plus, Trash2 } from 'lucide-react';
 import {
     buildRRuleString,
@@ -10,6 +9,7 @@ import {
     type Task,
     type TaskEditorFieldId,
     type TaskPriority,
+    type TaskStatus,
     type TimeEstimate,
 } from '@mindwtr/core';
 
@@ -32,6 +32,7 @@ export type TaskItemFieldRendererData = {
     visibleEditAttachments: Attachment[];
     editStartTime: string;
     editReviewAt: string;
+    editStatus: TaskStatus;
     editPriority: TaskPriority | '';
     editRecurrence: RecurrenceRule | '';
     editRecurrenceStrategy: RecurrenceStrategy;
@@ -52,7 +53,7 @@ export type TaskItemFieldRendererHandlers = {
     removeAttachment: (id: string) => void;
     setEditStartTime: (value: string) => void;
     setEditReviewAt: (value: string) => void;
-    handleStatusChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+    setEditStatus: (value: TaskStatus) => void;
     setEditPriority: (value: TaskPriority | '') => void;
     setEditRecurrence: (value: RecurrenceRule | '') => void;
     setEditRecurrenceStrategy: (value: RecurrenceStrategy) => void;
@@ -86,6 +87,7 @@ export function TaskItemFieldRenderer({
         visibleEditAttachments,
         editStartTime,
         editReviewAt,
+        editStatus,
         editPriority,
         editRecurrence,
         editRecurrenceStrategy,
@@ -105,7 +107,7 @@ export function TaskItemFieldRenderer({
         removeAttachment,
         setEditStartTime,
         setEditReviewAt,
-        handleStatusChange,
+        setEditStatus,
         setEditPriority,
         setEditRecurrence,
         setEditRecurrenceStrategy,
@@ -234,11 +236,11 @@ export function TaskItemFieldRenderer({
         case 'status':
             return (
                 <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.statusLabel')}</label>
-                        <select
-                            value={task.status}
+                    <label className="text-xs text-muted-foreground font-medium">{t('taskEdit.statusLabel')}</label>
+                    <select
+                            value={editStatus}
                             aria-label="Status"
-                            onChange={handleStatusChange}
+                            onChange={(event) => setEditStatus(event.target.value as TaskStatus)}
                             className="text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
                         >
                             <option value="inbox">{t('status.inbox')}</option>
