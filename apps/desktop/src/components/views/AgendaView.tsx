@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useTaskStore, Task, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, matchesHierarchicalToken, getTaskAgeLabel, getTaskStaleness, type TaskStatus, safeFormatDate, safeParseDate, safeParseDueDate, isDueForReview } from '@mindwtr/core';
+import { useTaskStore, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, matchesHierarchicalToken, getTaskAgeLabel, getTaskStaleness, safeFormatDate, safeParseDate, safeParseDueDate, isDueForReview } from '@mindwtr/core';
+import type { Task, TaskStatus } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { cn } from '../../lib/utils';
 import { Clock, Star, Calendar, AlertCircle, ArrowRight, Filter, Check, type LucideIcon } from 'lucide-react';
@@ -81,13 +82,13 @@ export function AgendaView() {
     const getPriorityBadge = (priority: TaskPriority) => {
         switch (priority) {
             case 'low':
-                return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+                return 'bg-green-600 text-white dark:bg-green-500/60 dark:text-white';
             case 'medium':
-                return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+                return 'bg-yellow-600 text-white dark:bg-yellow-500/60 dark:text-white';
             case 'high':
-                return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+                return 'bg-orange-600 text-white dark:bg-orange-500/60 dark:text-white';
             case 'urgent':
-                return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+                return 'bg-red-600 text-white dark:bg-red-500/60 dark:text-white';
             default:
                 return 'bg-muted text-muted-foreground';
         }
@@ -134,20 +135,20 @@ export function AgendaView() {
             tasksByProject.set(task.projectId, list);
         }
         const sequentialFirstTasks = new Set<string>();
-        tasksByProject.forEach((tasksForProject) => {
+        tasksByProject.forEach((tasksForProject: Task[]) => {
             const hasOrder = tasksForProject.some((task) => Number.isFinite(task.orderNum));
-            let firstTask: Task | null = null;
+            let firstTaskId: string | null = null;
             let bestKey = Number.POSITIVE_INFINITY;
             tasksForProject.forEach((task) => {
                 const key = hasOrder
                     ? (Number.isFinite(task.orderNum) ? (task.orderNum as number) : Number.POSITIVE_INFINITY)
                     : new Date(task.createdAt).getTime();
-                if (!firstTask || key < bestKey) {
-                    firstTask = task;
+                if (!firstTaskId || key < bestKey) {
+                    firstTaskId = task.id;
                     bestKey = key;
                 }
             });
-            if (firstTask) sequentialFirstTasks.add(firstTask.id);
+            if (firstTaskId) sequentialFirstTasks.add(firstTaskId);
         });
 
         const overdue = filteredActiveTasks.filter(t => {
@@ -405,6 +406,7 @@ export function AgendaView() {
 
     const totalActive = activeTasks.length;
     const visibleActive = filteredActiveTasks.length;
+    const nextActionsCount = sections.nextActions.length;
 
     return (
         <div className="space-y-6 max-w-4xl">
@@ -414,7 +416,7 @@ export function AgendaView() {
                     {t('agenda.title')}
                 </h2>
                 <p className="text-muted-foreground">
-                    {hasFilters ? `${visibleActive} / ${totalActive}` : totalActive} {t('agenda.active')}
+                    {nextActionsCount} {t('list.next') || t('agenda.nextActions')}
                 </p>
                 <button
                     type="button"
