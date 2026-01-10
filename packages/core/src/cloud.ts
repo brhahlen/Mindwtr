@@ -86,8 +86,7 @@ export async function cloudGetJson<T>(
 
     if (res.status === 404) return null;
     if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Cloud GET failed (${res.status}): ${text || res.statusText}`);
+        throw new Error(`Cloud GET failed (${res.status}): ${res.statusText}`);
     }
 
     const text = await res.text();
@@ -116,7 +115,6 @@ export async function cloudPutJson(
     );
 
     if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Cloud PUT failed (${res.status}): ${text || res.statusText}`);
+        throw new Error(`Cloud PUT failed (${res.status}): ${res.statusText}`);
     }
 }
