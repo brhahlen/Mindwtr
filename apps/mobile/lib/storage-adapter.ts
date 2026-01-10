@@ -180,12 +180,16 @@ const initSqliteState = async (): Promise<SqliteState> => {
 
 const getSqliteState = async (): Promise<SqliteState> => {
     if (!sqliteStatePromise) {
-        sqliteStatePromise = initSqliteState().catch((error) => {
-            sqliteStatePromise = null;
-            throw error;
-        });
+        sqliteStatePromise = initSqliteState();
     }
-    return sqliteStatePromise;
+    try {
+        return await sqliteStatePromise;
+    } catch (error) {
+        sqliteStatePromise = null;
+        // Retry once on init failure to avoid a poisoned cache.
+        sqliteStatePromise = initSqliteState();
+        return await sqliteStatePromise;
+    }
 };
 
 // Platform-specific storage implementation
