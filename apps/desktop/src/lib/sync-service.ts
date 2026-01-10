@@ -98,34 +98,26 @@ export class SyncService {
         return {
             url: localStorage.getItem(WEBDAV_URL_KEY) || '',
             username: localStorage.getItem(WEBDAV_USERNAME_KEY) || '',
-            password: sessionStorage.getItem(WEBDAV_PASSWORD_KEY) || '',
+            password: '',
         };
     }
 
     private static setWebDavConfigLocal(config: { url: string; username?: string; password?: string }) {
         localStorage.setItem(WEBDAV_URL_KEY, config.url);
         localStorage.setItem(WEBDAV_USERNAME_KEY, config.username || '');
-        if (config.password) {
-            sessionStorage.setItem(WEBDAV_PASSWORD_KEY, config.password);
-        } else {
-            sessionStorage.removeItem(WEBDAV_PASSWORD_KEY);
-        }
+        sessionStorage.removeItem(WEBDAV_PASSWORD_KEY);
     }
 
     private static getCloudConfigLocal(): CloudConfig {
         return {
             url: localStorage.getItem(CLOUD_URL_KEY) || '',
-            token: sessionStorage.getItem(CLOUD_TOKEN_KEY) || '',
+            token: '',
         };
     }
 
     private static setCloudConfigLocal(config: { url: string; token?: string }) {
         localStorage.setItem(CLOUD_URL_KEY, config.url);
-        if (config.token) {
-            sessionStorage.setItem(CLOUD_TOKEN_KEY, config.token);
-        } else {
-            sessionStorage.removeItem(CLOUD_TOKEN_KEY);
-        }
+        sessionStorage.removeItem(CLOUD_TOKEN_KEY);
     }
 
     private static async maybeMigrateLegacyLocalStorageToConfig() {
