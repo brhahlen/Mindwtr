@@ -350,8 +350,18 @@ export function SettingsView() {
         }
     };
 
-    const openLink = (url: string) => {
-        window.open(url, '_blank');
+    const openLink = async (url: string) => {
+        if (isTauri) {
+            try {
+                const { open } = await import('@tauri-apps/plugin-shell');
+                await open(url);
+                return;
+            } catch (error) {
+                console.error('Failed to open external link:', error);
+            }
+        }
+
+        window.open(url, '_blank', 'noopener,noreferrer');
     };
 
     const handleChangeSyncLocation = async () => {
