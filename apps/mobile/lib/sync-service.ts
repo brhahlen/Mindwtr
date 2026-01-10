@@ -15,9 +15,11 @@ export const CLOUD_TOKEN_KEY = '@mindwtr_cloud_token';
 const DEFAULT_SYNC_TIMEOUT_MS = 30_000;
 
 let syncInFlight: Promise<{ success: boolean; stats?: MergeStats; error?: string }> | null = null;
+let syncQueued = false;
 
 export async function performMobileSync(syncPathOverride?: string): Promise<{ success: boolean; stats?: MergeStats; error?: string }> {
   if (syncInFlight) {
+    syncQueued = true;
     return syncInFlight;
   }
   syncInFlight = (async () => {
@@ -111,5 +113,9 @@ export async function performMobileSync(syncPathOverride?: string): Promise<{ su
     return await syncInFlight;
   } finally {
     syncInFlight = null;
+    if (syncQueued) {
+      syncQueued = false;
+      void performMobileSync(syncPathOverride);
+    }
   }
 }
