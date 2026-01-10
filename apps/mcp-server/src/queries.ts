@@ -1,6 +1,112 @@
 import type Database from 'better-sqlite3';
-import { generateUUID, normalizeTaskStatus, parseQuickAdd, type Project, type Task, type TaskStatus } from '@mindwtr/core';
-import { parseJson } from './db';
+import { parseJson } from './db.js';
+
+export type TaskStatus = 'inbox' | 'next' | 'waiting' | 'someday' | 'done' | 'archived';
+export type Task = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority?: string;
+  taskMode?: string;
+  startTime?: string;
+  dueDate?: string;
+  recurrence?: unknown;
+  pushCount?: number;
+  tags?: string[];
+  contexts?: string[];
+  checklist?: unknown[];
+  description?: string;
+  attachments?: unknown[];
+  location?: string;
+  projectId?: string;
+  orderNum?: number;
+  isFocusedToday?: boolean;
+  timeEstimate?: string;
+  reviewAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  purgedAt?: string;
+};
+
+type Project = { id: string; title: string };
+
+const STATUS_TOKENS: Record<string, TaskStatus> = {
+  inbox: 'inbox',
+  next: 'next',
+  waiting: 'waiting',
+  someday: 'someday',
+  done: 'done',
+  archived: 'archived',
+};
+
+const normalizeTaskStatus = (value: string): TaskStatus => {
+  const key = value.toLowerCase();
+  return STATUS_TOKENS[key] ?? 'inbox';
+};
+
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `mcp_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+};
+
+const parseQuickAdd = (input: string, projects: Project[]): { title: string; props: Partial<Task> } => {
+  let working = input.trim();
+  const props: Partial<Task> = {};
+  const contexts = new Set<string>();
+  const tags = new Set<string>();
+
+  const contextMatches = working.match(/@[\w-]+/g) || [];
+  contextMatches.forEach((ctx) => contexts.add(ctx));
+  contextMatches.forEach((ctx) => { working = working.replace(ctx, '').trim(); });
+
+  const tagMatches = working.match(/#[\w-]+/g) || [];
+  tagMatches.forEach((tag) => tags.add(tag));
+  tagMatches.forEach((tag) => { working = working.replace(tag, '').trim(); });
+
+  const noteMatch = working.match(/\/note:([^/]+?)(?=\s\/|$)/i);
+  if (noteMatch) {
+    props.description = noteMatch[1].trim();
+    working = working.replace(noteMatch[0], '').trim();
+  }
+
+  const dueMatch = working.match(/\/due:([^/]+?)(?=\s\/|$)/i);
+  if (dueMatch) {
+    const parsed = new Date(dueMatch[1].trim());
+    if (!Number.isNaN(parsed.getTime())) {
+      props.dueDate = parsed.toISOString();
+    }
+    working = working.replace(dueMatch[0], '').trim();
+  }
+
+  const statusMatch = working.match(/\/(inbox|next|waiting|someday|done|archived)\b/i);
+  if (statusMatch) {
+    props.status = normalizeTaskStatus(statusMatch[1]);
+    working = working.replace(statusMatch[0], '').trim();
+  }
+
+  const projectIdMatch = working.match(/\/project:([^\s/]+)/i);
+  if (projectIdMatch) {
+    props.projectId = projectIdMatch[1];
+    working = working.replace(projectIdMatch[0], '').trim();
+  } else {
+    const plusMatch = working.match(/(?:^|\s)\+([^\s/]+(?:\s+(?![@#+/])[^/\s]+)*)/);
+    if (plusMatch) {
+      const title = plusMatch[1].replace(/\s+/g, ' ').trim();
+      const project = projects.find((p) => p.title.toLowerCase() === title.toLowerCase());
+      if (project) props.projectId = project.id;
+      working = working.replace(plusMatch[0], '').trim();
+    }
+  }
+
+  if (contexts.size) props.contexts = Array.from(contexts);
+  if (tags.size) props.tags = Array.from(tags);
+
+  return { title: working.trim(), props };
+};
 
 export type ListTasksInput = {
   status?: TaskStatus | 'all';
@@ -150,7 +256,7 @@ export function addTask(db: Database.Database, input: AddTaskInput): TaskRow {
 
   if (input.quickAdd) {
     const projects = getProjects(db);
-    const quick = parseQuickAdd(input.quickAdd, projects, new Date());
+    const quick = parseQuickAdd(input.quickAdd, projects);
     title = quick.title || title || input.quickAdd;
     props = quick.props;
   }

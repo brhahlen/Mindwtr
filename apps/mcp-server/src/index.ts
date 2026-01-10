@@ -135,7 +135,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === 'mindwtr.complete_task') {
       if (readonly) throw new Error('Database opened read-only.');
       const input = completeTaskSchema.parse(args ?? {});
-      const task = completeTask(db, input);
+      const task = completeTask(db, { id: input.id });
       return {
         content: [
           {

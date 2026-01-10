@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { resolveMindwtrDbPath } from './paths';
+import { resolveMindwtrDbPath } from './paths.js';
 
 export type DbOptions = {
   dbPath?: string;
