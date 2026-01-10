@@ -4,7 +4,7 @@ import { isTauriRuntime } from './runtime';
 
 const AI_SECRET_KEY = 'mindwtr-ai-key-secret';
 
-const getSessionSecret = (): Uint8Array | null => {
+const getSessionSecretBytes = (): Uint8Array | null => {
     if (typeof sessionStorage === 'undefined') return null;
     const existing = sessionStorage.getItem(AI_SECRET_KEY);
     if (existing) {
@@ -19,6 +19,17 @@ const getSessionSecret = (): Uint8Array | null => {
     crypto.getRandomValues(bytes);
     sessionStorage.setItem(AI_SECRET_KEY, bytesToBase64(bytes));
     return bytes;
+};
+
+const getSessionKey = async (): Promise<CryptoKey | null> => {
+    if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+    const bytes = getSessionSecretBytes();
+    if (!bytes) return null;
+    try {
+        return await crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    } catch {
+        return null;
+    }
 };
 
 const bytesToBase64 = (bytes: Uint8Array): string => {
@@ -38,43 +49,45 @@ const base64ToBytes = (value: string): Uint8Array => {
     return bytes;
 };
 
-const xorBytes = (data: Uint8Array, key: Uint8Array): Uint8Array => {
-    const out = new Uint8Array(data.length);
-    for (let i = 0; i < data.length; i += 1) {
-        out[i] = data[i] ^ key[i % key.length];
-    }
-    return out;
-};
-
-const loadLocalKey = (provider: AIProviderId): string => {
+const loadLocalKey = async (provider: AIProviderId): Promise<string> => {
     if (typeof localStorage === 'undefined') return '';
     const stored = localStorage.getItem(getAIKeyStorageKey(provider));
     if (!stored) return '';
-    const secret = getSessionSecret();
-    if (!secret) return '';
+    const secretKey = await getSessionKey();
+    if (!secretKey) return '';
     try {
-        const bytes = xorBytes(base64ToBytes(stored), secret);
-        return new TextDecoder().decode(bytes);
+        const [ivEncoded, payloadEncoded] = stored.split(':');
+        if (!ivEncoded || !payloadEncoded) return '';
+        const iv = base64ToBytes(ivEncoded);
+        const payload = base64ToBytes(payloadEncoded);
+        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, secretKey, payload);
+        return new TextDecoder().decode(new Uint8Array(decrypted));
     } catch {
         return '';
     }
 };
 
-const saveLocalKey = (provider: AIProviderId, value: string): void => {
+const saveLocalKey = async (provider: AIProviderId, value: string): Promise<void> => {
     if (typeof localStorage === 'undefined') return;
     const key = getAIKeyStorageKey(provider);
     if (!value) {
         localStorage.removeItem(key);
         return;
     }
-    const secret = getSessionSecret();
-    if (!secret) {
+    const secretKey = await getSessionKey();
+    if (!secretKey) {
         localStorage.removeItem(key);
         return;
     }
+    if (typeof crypto === 'undefined' || !crypto.getRandomValues || !crypto.subtle) {
+        localStorage.removeItem(key);
+        return;
+    }
+    const iv = crypto.getRandomValues(new Uint8Array(12));
     const bytes = new TextEncoder().encode(value);
-    const encrypted = xorBytes(bytes, secret);
-    localStorage.setItem(key, bytesToBase64(encrypted));
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, secretKey, bytes);
+    const payload = new Uint8Array(encrypted);
+    localStorage.setItem(key, `${bytesToBase64(iv)}:${bytesToBase64(payload)}`);
 };
 
 export async function loadAIKey(provider: AIProviderId): Promise<string> {
@@ -88,7 +101,7 @@ export async function loadAIKey(provider: AIProviderId): Promise<string> {
             return '';
         }
     }
-    return loadLocalKey(provider);
+    return await loadLocalKey(provider);
 }
 
 export async function saveAIKey(provider: AIProviderId, value: string): Promise<void> {
@@ -102,7 +115,7 @@ export async function saveAIKey(provider: AIProviderId, value: string): Promise<
             return;
         }
     }
-    saveLocalKey(provider, value);
+    await saveLocalKey(provider, value);
 }
 
 export { buildAIConfig, buildCopilotConfig };
