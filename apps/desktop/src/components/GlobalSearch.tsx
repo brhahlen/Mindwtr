@@ -16,6 +16,7 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
     const [showSavePrompt, setShowSavePrompt] = useState(false);
     const [savePromptDefault, setSavePromptDefault] = useState('');
     const [ftsResults, setFtsResults] = useState<{ tasks: Task[]; projects: Project[] } | null>(null);
+    const [ftsLoading, setFtsLoading] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const { _allTasks, projects, settings, updateSettings, setHighlightTask } = useTaskStore();
     const { t } = useLanguage();
@@ -59,19 +60,25 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
         let cancelled = false;
         if (!shouldUseFts) {
             setFtsResults(null);
+            setFtsLoading(false);
             return;
         }
         const adapter = getStorageAdapter();
         if (!adapter.searchAll) {
             setFtsResults(null);
+            setFtsLoading(false);
             return;
         }
+        setFtsLoading(true);
         adapter.searchAll(trimmedQuery)
             .then((results) => {
                 if (!cancelled) setFtsResults(results);
             })
             .catch(() => {
                 if (!cancelled) setFtsResults(null);
+            })
+            .finally(() => {
+                if (!cancelled) setFtsLoading(false);
             });
         return () => {
             cancelled = true;
@@ -195,13 +202,18 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
                                 .replace('{total}', String(totalResults))}
                         </div>
                     )}
-                    {results.length === 0 && trimmedQuery !== '' && (
+                    {ftsLoading && trimmedQuery !== '' && (
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                            {t('search.searching')}
+                        </div>
+                    )}
+                    {!ftsLoading && results.length === 0 && trimmedQuery !== '' && (
                         <div className="text-center py-8 text-muted-foreground text-sm">
                             {t('search.noResults')} "{trimmedQuery}"
                         </div>
                     )}
 
-                    {results.length === 0 && trimmedQuery === '' && (
+                    {!ftsLoading && results.length === 0 && trimmedQuery === '' && (
                         <div className="text-center py-8 text-muted-foreground text-sm">
                             {t('search.typeToSearch')}
                         </div>
