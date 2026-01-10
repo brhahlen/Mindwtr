@@ -131,6 +131,7 @@ const en: Record<string, string> = {
         'taskEdit.recurrenceLabel': 'Recurrence',
         'taskEdit.descriptionLabel': 'Description',
         'taskEdit.descriptionPlaceholder': 'Add notes...',
+        'taskEdit.basic': 'Basic',
         'taskEdit.scheduling': 'Scheduling',
         'taskEdit.organization': 'Organization',
         'taskEdit.details': 'Details',
@@ -321,9 +322,6 @@ const en: Record<string, string> = {
         'projects.parallelTooltip': 'Parallel: All tasks show in Next Actions',
         'projects.reviewAtHint': 'Tickler date to revisit this project.',
         'projects.noNextAction': 'No next action',
-        'projects.reorderHint': 'Drag tasks to reorder',
-        'projects.reorder': 'Reorder',
-
         // Tutorial
         'tutorial.title': 'Getting Things Done',
         'tutorial.subtitle': 'A guide to mastering your productivity with this application.',
@@ -921,6 +919,7 @@ const zh: Record<string, string> = {
         'taskEdit.recurrenceLabel': '重复',
         'taskEdit.descriptionLabel': '描述',
         'taskEdit.descriptionPlaceholder': '添加备注...',
+        'taskEdit.basic': '基础',
         'taskEdit.scheduling': '时间安排',
         'taskEdit.organization': '组织',
         'taskEdit.details': '详情',
@@ -1111,9 +1110,6 @@ const zh: Record<string, string> = {
         'projects.parallelTooltip': '并行：所有任务都显示为下一步行动',
         'projects.reviewAtHint': '用于提醒你回顾此项目的日期。',
         'projects.noNextAction': '没有下一步行动',
-        'projects.reorderHint': '拖动任务重新排序',
-        'projects.reorder': '排序',
-
         // Tutorial
         'tutorial.title': '搞定一切 GTD 方法',
         'tutorial.subtitle': '掌握这个应用程序提高您效率的指南。',
@@ -1693,6 +1689,7 @@ const esOverrides: Record<string, string> = {
         'taskEdit.recurrenceLabel': 'Recurrencia',
         'taskEdit.descriptionLabel': 'Descripción',
         'taskEdit.descriptionPlaceholder': 'Añadir notas...',
+        'taskEdit.basic': 'Básico',
         'taskEdit.scheduling': 'Planificación',
         'taskEdit.organization': 'Organización',
         'taskEdit.details': 'Detalles',

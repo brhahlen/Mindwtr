@@ -41,6 +41,7 @@ import {
     translateText,
     type AIProviderId,
     type AIReasoningEffort,
+    type AppData,
     type ExternalCalendarSubscription,
     type TaskEditorFieldId,
     type TimeEstimate,
@@ -72,7 +73,6 @@ type SettingsScreen =
     | 'gtd-archive'
     | 'gtd-time-estimates'
     | 'gtd-task-editor'
-    | 'gtd-features'
     | 'sync'
     | 'about';
 
@@ -277,7 +277,7 @@ export default function SettingsPage() {
     useEffect(() => {
         const onBackPress = () => {
             if (currentScreen !== 'main') {
-                if (currentScreen === 'gtd-time-estimates' || currentScreen === 'gtd-task-editor' || currentScreen === 'gtd-archive' || currentScreen === 'gtd-features') {
+                if (currentScreen === 'gtd-time-estimates' || currentScreen === 'gtd-task-editor' || currentScreen === 'gtd-archive') {
                     setCurrentScreen('gtd');
                 } else if (currentScreen === 'ai' || currentScreen === 'calendar') {
                     setCurrentScreen('advanced');
@@ -1192,10 +1192,6 @@ export default function SettingsPage() {
                 <ScrollView style={styles.scrollView}>
                     <Text style={[styles.description, { color: tc.secondaryText }]}>{t('settings.gtdDesc')}</Text>
                     <View style={[styles.menuCard, { backgroundColor: tc.cardBg }]}>
-                        <MenuItem
-                            title={t('settings.features')}
-                            onPress={() => setCurrentScreen('gtd-features')}
-                        />
                         {timeEstimatesEnabled && (
                             <MenuItem
                                 title={t('settings.timeEstimatePresets')}
@@ -1210,45 +1206,6 @@ export default function SettingsPage() {
                             title={t('settings.taskEditorLayout')}
                             onPress={() => setCurrentScreen('gtd-task-editor')}
                         />
-                    </View>
-                </ScrollView>
-            </SafeAreaView>
-        );
-    }
-
-    if (currentScreen === 'gtd-features') {
-        return (
-            <SafeAreaView style={[styles.container, { backgroundColor: tc.bg }]} edges={['bottom']}>
-                <SubHeader title={t('settings.features')} />
-                <ScrollView style={styles.scrollView}>
-                    <Text style={[styles.description, { color: tc.secondaryText }]}>{t('settings.featuresDesc')}</Text>
-                    <View style={[styles.settingCard, { backgroundColor: tc.cardBg }]}>
-                        <View style={styles.settingRow}>
-                            <View style={styles.settingInfo}>
-                                <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.featurePriorities')}</Text>
-                                <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                    {t('settings.featurePrioritiesDesc')}
-                                </Text>
-                            </View>
-                            <Switch
-                                value={prioritiesEnabled}
-                                onValueChange={(value) => updateFeatureFlags({ priorities: value })}
-                                trackColor={{ false: '#767577', true: '#3B82F6' }}
-                            />
-                        </View>
-                        <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
-                            <View style={styles.settingInfo}>
-                                <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.featureTimeEstimates')}</Text>
-                                <Text style={[styles.settingDescription, { color: tc.secondaryText }]}>
-                                    {t('settings.featureTimeEstimatesDesc')}
-                                </Text>
-                            </View>
-                            <Switch
-                                value={timeEstimatesEnabled}
-                                onValueChange={(value) => updateFeatureFlags({ timeEstimates: value })}
-                                trackColor={{ false: '#767577', true: '#3B82F6' }}
-                            />
-                        </View>
                     </View>
                 </ScrollView>
             </SafeAreaView>
@@ -1406,9 +1363,19 @@ export default function SettingsPage() {
             'attachments',
             'checklist',
         ];
-        const defaultTaskEditorOrder = baseTaskEditorOrder.filter((fieldId) => !featureHiddenFields.has(fieldId));
-        const alwaysVisible: TaskEditorFieldId[] = ['status', 'project', 'priority', 'contexts', 'description', 'recurrence'];
-        const defaultTaskEditorHidden = defaultTaskEditorOrder.filter((id) => !alwaysVisible.includes(id));
+        const defaultTaskEditorOrder = baseTaskEditorOrder;
+        const defaultVisibleFields: TaskEditorFieldId[] = [
+            'status',
+            'project',
+            'description',
+            'checklist',
+            'dueDate',
+            'priority',
+            'timeEstimate',
+        ];
+        const defaultTaskEditorHidden = defaultTaskEditorOrder.filter(
+            (id) => !defaultVisibleFields.includes(id) || featureHiddenFields.has(id)
+        );
         const known = new Set(defaultTaskEditorOrder);
         const savedOrder = (settings.gtd?.taskEditor?.order ?? []).filter((id) => known.has(id));
         const taskEditorOrder = [...savedOrder, ...defaultTaskEditorOrder.filter((id) => !savedOrder.includes(id))];
@@ -1449,8 +1416,12 @@ export default function SettingsPage() {
             }
         };
 
-        const saveTaskEditor = (next: { order?: TaskEditorFieldId[]; hidden?: TaskEditorFieldId[] }) => {
+        const saveTaskEditor = (
+            next: { order?: TaskEditorFieldId[]; hidden?: TaskEditorFieldId[] },
+            nextFeatures?: AppData['settings']['features']
+        ) => {
             updateSettings({
+                ...(nextFeatures ? { features: nextFeatures } : null),
                 gtd: {
                     ...(settings.gtd ?? {}),
                     taskEditor: {
@@ -1466,26 +1437,52 @@ export default function SettingsPage() {
             const nextHidden = new Set(hiddenSet);
             if (nextHidden.has(fieldId)) nextHidden.delete(fieldId);
             else nextHidden.add(fieldId);
-            saveTaskEditor({ order: taskEditorOrder, hidden: Array.from(nextHidden) });
+            const nextFeatures = { ...(settings.features ?? {}) };
+            if (fieldId === 'priority') nextFeatures.priorities = !nextHidden.has('priority');
+            if (fieldId === 'timeEstimate') nextFeatures.timeEstimates = !nextHidden.has('timeEstimate');
+            saveTaskEditor({ order: taskEditorOrder, hidden: Array.from(nextHidden) }, nextFeatures);
         };
 
-        const moveOrder = (fromIndex: number, toIndex: number) => {
+        const moveOrderInGroup = (fieldId: TaskEditorFieldId, delta: number, groupFields: TaskEditorFieldId[]) => {
+            const groupOrder = taskEditorOrder.filter((id) => groupFields.includes(id));
+            const fromIndex = groupOrder.indexOf(fieldId);
+            if (fromIndex < 0) return;
+            const toIndex = Math.max(0, Math.min(groupOrder.length - 1, fromIndex + delta));
             if (fromIndex === toIndex) return;
-            const clampedTo = Math.max(0, Math.min(taskEditorOrder.length - 1, toIndex));
-            const nextOrder = [...taskEditorOrder];
-            const [item] = nextOrder.splice(fromIndex, 1);
-            nextOrder.splice(clampedTo, 0, item);
+            const nextGroupOrder = [...groupOrder];
+            const [item] = nextGroupOrder.splice(fromIndex, 1);
+            nextGroupOrder.splice(toIndex, 0, item);
+            let groupIndex = 0;
+            const nextOrder = taskEditorOrder.map((id) =>
+                groupFields.includes(id) ? nextGroupOrder[groupIndex++] : id
+            );
             saveTaskEditor({ order: nextOrder, hidden: Array.from(hiddenSet) });
         };
 
-        function TaskEditorRow({ fieldId, index }: { fieldId: TaskEditorFieldId; index: number }) {
+        const fieldGroups: { id: string; title: string; fields: TaskEditorFieldId[] }[] = [
+            { id: 'basic', title: t('taskEdit.basic') || 'Basic', fields: ['status', 'project', 'dueDate'] },
+            { id: 'scheduling', title: t('taskEdit.scheduling'), fields: ['startTime', 'recurrence', 'reviewAt'] },
+            { id: 'organization', title: t('taskEdit.organization'), fields: ['contexts', 'tags', 'priority', 'timeEstimate'] },
+            { id: 'details', title: t('taskEdit.details'), fields: ['description', 'attachments', 'checklist'] },
+        ];
+
+        function TaskEditorRow({
+            fieldId,
+            index,
+            groupFields,
+            isFirst,
+        }: {
+            fieldId: TaskEditorFieldId;
+            index: number;
+            groupFields: TaskEditorFieldId[];
+            isFirst: boolean;
+        }) {
             const translateY = useSharedValue(0);
             const scale = useSharedValue(1);
             const zIndex = useSharedValue(0);
 
-            const onDrop = (from: number, deltaRows: number) => {
-                const nextIndex = Math.max(0, Math.min(taskEditorOrder.length - 1, from + deltaRows));
-                moveOrder(from, nextIndex);
+            const onDrop = (deltaRows: number) => {
+                moveOrderInGroup(fieldId, deltaRows, groupFields);
             };
 
             const panGesture = Gesture.Pan()
@@ -1497,9 +1494,9 @@ export default function SettingsPage() {
                 .onUpdate((event) => {
                     translateY.value = event.translationY;
                 })
-                .onEnd((event) => {
+            .onEnd((event) => {
                     const deltaRows = Math.round(event.translationY / ROW_HEIGHT);
-                    if (deltaRows !== 0) runOnJS(onDrop)(index, deltaRows);
+                    if (deltaRows !== 0) runOnJS(onDrop)(deltaRows);
                     translateY.value = withSpring(0);
                     scale.value = withSpring(1);
                     zIndex.value = 0;
@@ -1517,7 +1514,7 @@ export default function SettingsPage() {
                     style={[
                         styles.taskEditorRow,
                         { borderTopColor: tc.border },
-                        index > 0 && styles.taskEditorRowBorder,
+                        !isFirst && styles.taskEditorRowBorder,
                         animatedStyle,
                     ]}
                 >
@@ -1542,7 +1539,13 @@ export default function SettingsPage() {
         }
 
         const resetToDefault = () => {
-            saveTaskEditor({ order: [...defaultTaskEditorOrder], hidden: [...defaultTaskEditorHidden] });
+            const nextFeatures = { ...(settings.features ?? {}) };
+            nextFeatures.priorities = !defaultTaskEditorHidden.includes('priority');
+            nextFeatures.timeEstimates = !defaultTaskEditorHidden.includes('timeEstimate');
+            saveTaskEditor(
+                { order: [...defaultTaskEditorOrder], hidden: [...defaultTaskEditorHidden] },
+                nextFeatures
+            );
         };
 
         return (
@@ -1553,9 +1556,25 @@ export default function SettingsPage() {
                     <Text style={[styles.description, { color: tc.secondaryText, marginTop: -6 }]}>{t('settings.taskEditorLayoutHint')}</Text>
 
                     <View style={[styles.settingCard, { backgroundColor: tc.cardBg, overflow: 'visible' }]}>
-                        {taskEditorOrder.map((fieldId, index) => (
-                            <TaskEditorRow key={fieldId} fieldId={fieldId} index={index} />
-                        ))}
+                        {fieldGroups.map((group) => {
+                            const groupOrder = taskEditorOrder.filter((id) => group.fields.includes(id));
+                            return (
+                                <View key={group.id} style={{ marginBottom: 8 }}>
+                                    <Text style={[styles.sectionHeaderText, { color: tc.secondaryText }]}>
+                                        {group.title}
+                                    </Text>
+                                    {groupOrder.map((fieldId, index) => (
+                                        <TaskEditorRow
+                                            key={fieldId}
+                                            fieldId={fieldId}
+                                            index={index}
+                                            groupFields={group.fields}
+                                            isFirst={index === 0}
+                                        />
+                                    ))}
+                                </View>
+                            );
+                        })}
                     </View>
 
                     <TouchableOpacity
@@ -2238,6 +2257,7 @@ const styles = StyleSheet.create({
     settingCard: { borderRadius: 12, overflow: 'hidden' },
     settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
     settingRowColumn: { padding: 16 },
+    sectionHeaderText: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 16, marginTop: 12, marginBottom: 4 },
     taskEditorRow: { flexDirection: 'row', alignItems: 'center', height: 52, paddingHorizontal: 16, position: 'relative' },
     taskEditorRowBorder: { borderTopWidth: 1 },
     taskEditorRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
