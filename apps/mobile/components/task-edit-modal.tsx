@@ -1862,7 +1862,6 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                             copilotEstimate={copilotEstimate}
                             copilotTags={copilotTags}
                             timeEstimatesEnabled={timeEstimatesEnabled}
-                            task={task}
                             renderField={renderField}
                             showDatePicker={showDatePicker}
                             pendingStartDate={pendingStartDate}

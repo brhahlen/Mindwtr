@@ -26,7 +26,6 @@ type TaskEditFormTabProps = {
     copilotEstimate: TimeEstimate | undefined;
     copilotTags: string[];
     timeEstimatesEnabled: boolean;
-    task: Task | null;
     renderField: (fieldId: TaskEditorFieldId) => React.ReactNode;
     showDatePicker: string | null;
     pendingStartDate: Date | null;
@@ -55,7 +54,6 @@ export function TaskEditFormTab({
     copilotEstimate,
     copilotTags,
     timeEstimatesEnabled,
-    task,
     renderField,
     showDatePicker,
     pendingStartDate,
