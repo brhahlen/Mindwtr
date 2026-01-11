@@ -466,13 +466,13 @@ export default function SettingsPage() {
                 const file = await File.downloadFileAsync(url, targetFile, { idempotent: true });
                 updateSpeechSettings({ offlineModelPath: file.uri, model: selectedWhisperModel.id });
             } catch (downloadError) {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw downloadError;
-                }
-                const buffer = await response.arrayBuffer();
-                targetFile.write(new Uint8Array(buffer));
-                updateSpeechSettings({ offlineModelPath: targetFile.uri, model: selectedWhisperModel.id });
+                const fallbackMessage = localize(
+                    'Download failed. Please retry on Wi‑Fi. Large models cannot be buffered into memory.',
+                    '下载失败。请在 Wi‑Fi 下重试。大型模型无法加载到内存。'
+                );
+                throw new Error(downloadError instanceof Error
+                    ? `${fallbackMessage}\n${downloadError.message}`
+                    : fallbackMessage);
             }
             setWhisperDownloadState('success');
             clearSuccess();
