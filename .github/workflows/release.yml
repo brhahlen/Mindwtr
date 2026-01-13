@@ -458,7 +458,9 @@ jobs:
         id: winget_check
         run: |
           PKG_ID="dongdongbh.Mindwtr"
-          URL="https://github.com/microsoft/winget-pkgs/tree/master/manifests/${PKG_ID,,0:1}/${PKG_ID//./\/}"
+          PKG_LOWER="${PKG_ID,,}"
+          FIRST="${PKG_LOWER:0:1}"
+          URL="https://github.com/microsoft/winget-pkgs/tree/master/manifests/${FIRST}/${PKG_ID//./\/}"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
           if [ "$STATUS" = "200" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
