@@ -624,7 +624,13 @@ export function ListView({ title, statusFilter }: ListViewProps) {
 
     const showFilters = ['next', 'all'].includes(statusFilter);
     const isInbox = statusFilter === 'inbox';
-    const nextCount = tasks.filter(t => t.status === 'next' && !t.deletedAt).length;
+    const nextCount = useMemo(() => {
+        let count = 0;
+        for (const task of tasks) {
+            if (!task.deletedAt && task.status === 'next') count += 1;
+        }
+        return count;
+    }, [tasks]);
     const isNextView = statusFilter === 'next';
     const NEXT_WARNING_THRESHOLD = 15;
     const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
