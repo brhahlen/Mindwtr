@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
-import { Plus, Filter, AlertTriangle, List, Mic } from 'lucide-react';
+import { Plus, AlertTriangle, List, Mic } from 'lucide-react';
 import { useTaskStore, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, sortTasksBy, Project, parseQuickAdd, matchesHierarchicalToken, safeParseDate, createAIProvider, type AIProviderId } from '@mindwtr/core';
 import type { Task, TaskStatus } from '@mindwtr/core';
 import type { TaskSortBy } from '@mindwtr/core';
@@ -9,6 +9,7 @@ import { TaskInput } from '../Task/TaskInput';
 import { cn } from '../../lib/utils';
 import { PromptModal } from '../PromptModal';
 import { InboxProcessor } from './InboxProcessor';
+import { ListFiltersPanel } from './list/ListFiltersPanel';
 import { useLanguage } from '../../contexts/language-context';
 import { useKeybindings } from '../../contexts/keybinding-context';
 import { buildCopilotConfig, loadAIKey } from '../../lib/ai-config';
@@ -867,115 +868,27 @@ export function ListView({ title, statusFilter }: ListViewProps) {
 
             {/* Filters */}
             {showFilters && !isProcessing && (
-                <div className="bg-card border border-border rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <Filter className="w-4 h-4" />
-                            {t('filters.label')}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {hasFilters && (
-                                <button
-                                    type="button"
-                                    onClick={clearFilters}
-                                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                >
-                                    {t('filters.clear')}
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => setListFilters({ open: !filtersOpen })}
-                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                {showFiltersPanel ? t('filters.hide') : t('filters.show')}
-                            </button>
-                        </div>
-                    </div>
-                    {showFiltersPanel && (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('filters.contexts')}</div>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                                    {allTokens.map((token) => {
-                                        const isActive = selectedTokens.includes(token);
-                                        return (
-                                            <button
-                                                key={token}
-                                                type="button"
-                                                onClick={() => toggleTokenFilter(token)}
-                                                aria-pressed={isActive}
-                                                className={cn(
-                                                    "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                                                    isActive
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                                )}
-                                            >
-                                                {token}
-                                                {tokenCounts[token] > 0 && (
-                                                    <span className="ml-1 opacity-70">({tokenCounts[token]})</span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            {prioritiesEnabled && (
-                                <div className="space-y-2">
-                                    <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('filters.priority')}</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {priorityOptions.map((priority) => {
-                                            const isActive = selectedPriorities.includes(priority);
-                                            return (
-                                                <button
-                                                    key={priority}
-                                                    type="button"
-                                                    onClick={() => togglePriorityFilter(priority)}
-                                                    aria-pressed={isActive}
-                                                    className={cn(
-                                                        "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                                                        isActive
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                                    )}
-                                                >
-                                                    {t(`priority.${priority}`)}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                            {timeEstimatesEnabled && (
-                                <div className="space-y-2">
-                                    <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('filters.timeEstimate')}</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {timeEstimateOptions.map((estimate) => {
-                                            const isActive = selectedTimeEstimates.includes(estimate);
-                                            return (
-                                                <button
-                                                    key={estimate}
-                                                    type="button"
-                                                    onClick={() => toggleTimeFilter(estimate)}
-                                                    aria-pressed={isActive}
-                                                    className={cn(
-                                                        "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                                                        isActive
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                                    )}
-                                                >
-                                                    {formatEstimate(estimate)}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                <ListFiltersPanel
+                    t={t}
+                    hasFilters={hasFilters}
+                    filtersOpen={filtersOpen}
+                    showFiltersPanel={showFiltersPanel}
+                    onClearFilters={clearFilters}
+                    onToggleOpen={() => setListFilters({ open: !filtersOpen })}
+                    allTokens={allTokens}
+                    selectedTokens={selectedTokens}
+                    tokenCounts={tokenCounts}
+                    onToggleToken={toggleTokenFilter}
+                    prioritiesEnabled={prioritiesEnabled}
+                    priorityOptions={priorityOptions}
+                    selectedPriorities={selectedPriorities}
+                    onTogglePriority={togglePriorityFilter}
+                    timeEstimatesEnabled={timeEstimatesEnabled}
+                    timeEstimateOptions={timeEstimateOptions}
+                    selectedTimeEstimates={selectedTimeEstimates}
+                    onToggleEstimate={toggleTimeFilter}
+                    formatEstimate={formatEstimate}
+                />
             )}
 
             {/* Only show add task for inbox/next - other views are read-only */}
