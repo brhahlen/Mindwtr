@@ -2,21 +2,20 @@ import { useState, useMemo, useEffect } from 'react';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { useTaskStore, Attachment, Task, type Project, type Area, generateUUID, safeFormatDate, safeParseDate, parseQuickAdd, PRESET_CONTEXTS, validateAttachmentForUpload } from '@mindwtr/core';
 import { TaskInput } from '../Task/TaskInput';
-import { Folder, ListOrdered, ChevronRight, ChevronDown, Archive as ArchiveIcon, RotateCcw, Paperclip, Link2 } from 'lucide-react';
+import { Folder, ListOrdered, Archive as ArchiveIcon, RotateCcw } from 'lucide-react';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../contexts/language-context';
-import { Markdown } from '../Markdown';
 import { PromptModal } from '../PromptModal';
 import { isTauriRuntime } from '../../lib/runtime';
 import { normalizeAttachmentInput } from '../../lib/attachment-utils';
 import { invoke } from '@tauri-apps/api/core';
 import { size } from '@tauri-apps/plugin-fs';
-import { AttachmentProgressIndicator } from '../AttachmentProgressIndicator';
 import { SortableProjectTaskRow } from './projects/SortableRows';
 import { ProjectsSidebar } from './projects/ProjectsSidebar';
 import { AreaManagerModal } from './projects/AreaManagerModal';
+import { ProjectNotesSection } from './projects/ProjectNotesSection';
 
 function toDateTimeLocalValue(dateStr: string | undefined): string {
     if (!dateStr) return '';
@@ -598,97 +597,24 @@ export function ProjectsView() {
                             </div>
                         </header>
 
-		                        <div className="mb-6 border rounded-lg overflow-hidden bg-card">
-		                            <button
-		                                onClick={() => {
-		                                    setNotesExpanded(!notesExpanded);
-		                                    setShowNotesPreview(false);
-		                                }}
-		                                className="w-full flex items-center gap-2 p-2 bg-muted/30 hover:bg-muted/50 transition-colors text-sm font-medium"
-		                            >
-			                                {notesExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-			                                {t('project.notes')}
-		                            </button>
-			                            {notesExpanded && (
-			                                <div className="p-3 space-y-3">
-			                                    <div className="flex items-center justify-between">
-			                                        <button
-			                                            type="button"
-			                                            onClick={() => setShowNotesPreview((v) => !v)}
-			                                            className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors text-muted-foreground"
-			                                        >
-			                                            {showNotesPreview ? t('markdown.edit') : t('markdown.preview')}
-			                                        </button>
-			                                        <div className="flex items-center gap-2">
-			                                            <button
-			                                                type="button"
-			                                                onClick={addProjectFileAttachment}
-			                                                className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors flex items-center gap-1"
-			                                            >
-			                                                <Paperclip className="w-3 h-3" />
-			                                                {t('attachments.addFile')}
-			                                            </button>
-			                                            <button
-			                                                type="button"
-			                                                onClick={addProjectLinkAttachment}
-			                                                className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors flex items-center gap-1"
-			                                            >
-			                                                <Link2 className="w-3 h-3" />
-			                                                {t('attachments.addLink')}
-			                                            </button>
-			                                        </div>
-			                                    </div>
-
-			                                    {showNotesPreview ? (
-			                                        <div className="text-xs bg-muted/30 border border-border rounded px-2 py-2">
-			                                            <Markdown markdown={selectedProject.supportNotes || ''} />
-			                                        </div>
-			                                    ) : (
-			                                        <textarea
-			                                            className="w-full min-h-[120px] p-3 text-sm bg-transparent border border-border rounded resize-y focus:outline-none focus:bg-accent/5"
-			                                            placeholder={t('projects.notesPlaceholder')}
-			                                            defaultValue={selectedProject.supportNotes || ''}
-			                                            onBlur={(e) => updateProject(selectedProject.id, { supportNotes: e.target.value })}
-			                                        />
-			                                    )}
-
-                                <div className="pt-2 border-t border-border/50 space-y-1">
-                                    <div className="text-xs text-muted-foreground font-medium">{t('attachments.title')}</div>
-                                    {attachmentError && (
-                                        <div className="text-xs text-red-400">{attachmentError}</div>
-                                    )}
-                                    {visibleAttachments.length === 0 ? (
-			                                            <div className="text-xs text-muted-foreground">{t('common.none')}</div>
-			                                        ) : (
-			                                            <div className="space-y-1">
-                                                    {visibleAttachments.map((attachment) => (
-                                                        <div key={attachment.id} className="flex items-center justify-between gap-2 text-xs">
-                                                            <div className="min-w-0 flex-1">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => openAttachment(attachment)}
-                                                                    className="truncate text-primary hover:underline"
-                                                                    title={attachment.title}
-                                                                >
-                                                                    {attachment.title}
-                                                                </button>
-                                                                <AttachmentProgressIndicator attachmentId={attachment.id} className="mt-1" />
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeProjectAttachment(attachment.id)}
-                                                                className="text-muted-foreground hover:text-foreground"
-                                                            >
-                                                                {t('attachments.remove')}
-                                                            </button>
-                                                        </div>
-                                                    ))}
-			                                            </div>
-			                                        )}
-			                                    </div>
-			                                </div>
-			                            )}
-			                        </div>
+                        <ProjectNotesSection
+                            project={selectedProject}
+                            notesExpanded={notesExpanded}
+                            onToggleNotes={() => {
+                                setNotesExpanded(!notesExpanded);
+                                setShowNotesPreview(false);
+                            }}
+                            showNotesPreview={showNotesPreview}
+                            onTogglePreview={() => setShowNotesPreview((value) => !value)}
+                            onAddFile={addProjectFileAttachment}
+                            onAddLink={addProjectLinkAttachment}
+                            visibleAttachments={visibleAttachments}
+                            attachmentError={attachmentError}
+                            onOpenAttachment={openAttachment}
+                            onRemoveAttachment={removeProjectAttachment}
+                            onUpdateNotes={(value) => updateProject(selectedProject.id, { supportNotes: value })}
+                            t={t}
+                        />
 
                         <div className="mb-6 bg-card border border-border rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between">
