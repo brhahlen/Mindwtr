@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, AlertTriangle, List, Mic } from 'lucide-react';
+import { Plus, AlertTriangle, Mic } from 'lucide-react';
 import { useTaskStore, TaskPriority, TimeEstimate, PRESET_CONTEXTS, PRESET_TAGS, sortTasksBy, Project, parseQuickAdd, matchesHierarchicalToken, safeParseDate, createAIProvider, type AIProviderId } from '@mindwtr/core';
 import type { Task, TaskStatus } from '@mindwtr/core';
 import type { TaskSortBy } from '@mindwtr/core';
 import { TaskItem } from '../TaskItem';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { TaskInput } from '../Task/TaskInput';
-import { cn } from '../../lib/utils';
 import { PromptModal } from '../PromptModal';
 import { InboxProcessor } from './InboxProcessor';
 import { ListFiltersPanel } from './list/ListFiltersPanel';
+import { ListHeader } from './list/ListHeader';
+import { ListBulkActions } from './list/ListBulkActions';
 import { VirtualTaskRow } from './list/VirtualTaskRow';
 import { useLanguage } from '../../contexts/language-context';
 import { useKeybindings } from '../../contexts/keybinding-context';
@@ -685,93 +686,34 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         <>
         <div className="flex h-full flex-col">
             <div className="space-y-6">
-            <header className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold tracking-tight">
-                    {title}
-                    {isNextView && <span className="ml-2 text-lg font-normal text-muted-foreground">({nextCount})</span>}
-                </h2>
-                <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground text-sm">
-                        {filteredTasks.length} {t('common.tasks')}
-                        {hasFilters && (
-                            <span className="ml-1 text-primary">• {filterSummaryLabel}{filterSummarySuffix}</span>
-                        )}
-                    </span>
-                    <select
-                        value={sortBy}
-                        onChange={(e) => updateSettings({ taskSortBy: e.target.value as TaskSortBy })}
-                        aria-label={t('sort.label')}
-                        className="text-xs bg-muted/50 text-foreground border border-border rounded px-2 py-1 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                        <option value="default">{t('sort.default')}</option>
-                        <option value="due">{t('sort.due')}</option>
-                        <option value="start">{t('sort.start')}</option>
-                        <option value="review">{t('sort.review')}</option>
-                        <option value="title">{t('sort.title')}</option>
-                        <option value="created">{t('sort.created')}</option>
-                        <option value="created-desc">{t('sort.created-desc')}</option>
-                    </select>
-                    <button
-                        onClick={() => {
-                            if (selectionMode) exitSelectionMode();
-                            else setSelectionMode(true);
-                        }}
-                        className={cn(
-                            "text-xs px-3 py-1 rounded-md border transition-colors",
-                            selectionMode
-                                ? "bg-primary/10 text-primary border-primary"
-                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                        )}
-                    >
-                        {selectionMode ? t('bulk.exitSelect') : t('bulk.select')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setListOptions({ showDetails: !showListDetails })}
-                        aria-pressed={showListDetails}
-                        className={cn(
-                            "text-xs px-3 py-1 rounded-md border transition-colors inline-flex items-center gap-1.5",
-                            showListDetails
-                                ? "bg-primary/10 text-primary border-primary"
-                                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                        )}
-                        title={showListDetails ? (t('list.details') || 'Details on') : (t('list.detailsOff') || 'Details off')}
-                    >
-                        <List className="w-3.5 h-3.5" />
-                        {showListDetails ? (t('list.details') || 'Details') : (t('list.compact') || 'Compact')}
-                    </button>
-                </div>
-            </header>
+            <ListHeader
+                title={title}
+                showNextCount={isNextView}
+                nextCount={nextCount}
+                taskCount={filteredTasks.length}
+                hasFilters={hasFilters}
+                filterSummaryLabel={filterSummaryLabel}
+                filterSummarySuffix={filterSummarySuffix}
+                sortBy={sortBy}
+                onChangeSortBy={(value) => updateSettings({ taskSortBy: value })}
+                selectionMode={selectionMode}
+                onToggleSelection={() => {
+                    if (selectionMode) exitSelectionMode();
+                    else setSelectionMode(true);
+                }}
+                showListDetails={showListDetails}
+                onToggleDetails={() => setListOptions({ showDetails: !showListDetails })}
+                t={t}
+            />
 
             {selectionMode && selectedIdsArray.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 bg-card border border-border rounded-lg p-3">
-                    <span className="text-sm text-muted-foreground">
-                        {selectedIdsArray.length} {t('bulk.selected')}
-                    </span>
-                    <div className="flex items-center gap-2">
-                        {(['inbox', 'next', 'waiting', 'someday', 'done'] as TaskStatus[]).map((status) => (
-                            <button
-                                key={status}
-                                onClick={() => handleBatchMove(status)}
-                                className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors"
-                            >
-                                {t(`status.${status}`)}
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        onClick={handleBatchAddTag}
-                        className="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors"
-                    >
-                        {t('bulk.addTag')}
-                    </button>
-                    <button
-                        onClick={handleBatchDelete}
-                        className="text-xs px-2 py-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                    >
-                        {t('bulk.delete')}
-                    </button>
-                </div>
+                <ListBulkActions
+                    selectionCount={selectedIdsArray.length}
+                    onMoveToStatus={handleBatchMove}
+                    onAddTag={handleBatchAddTag}
+                    onDelete={handleBatchDelete}
+                    t={t}
+                />
             )}
 
             {/* Next Actions Warning */}
