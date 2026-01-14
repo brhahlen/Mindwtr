@@ -39,6 +39,8 @@ import { TaskItemDisplay } from './Task/TaskItemDisplay';
 import { TaskItemFieldRenderer } from './Task/TaskItemFieldRenderer';
 import { TaskItemRecurrenceModal } from './Task/TaskItemRecurrenceModal';
 import { AudioAttachmentModal } from './Task/AudioAttachmentModal';
+import { ImageAttachmentModal } from './Task/ImageAttachmentModal';
+import { TextAttachmentModal } from './Task/TextAttachmentModal';
 import { WEEKDAY_FULL_LABELS, WEEKDAY_ORDER } from './Task/recurrence-constants';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { readFile, readTextFile, BaseDirectory, size } from '@tauri-apps/plugin-fs';
@@ -1240,87 +1242,26 @@ export const TaskItem = memo(function TaskItem({
             onOpenExternally={openAudioExternally}
             t={t}
         />
-        {imageAttachment && imageSource && (
-            <div
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                role="button"
-                tabIndex={0}
-                aria-label={t('common.close')}
-                onClick={closeImage}
-                onKeyDown={(event) => {
-                    if (event.key !== 'Escape') return;
-                    if (event.currentTarget !== event.target) return;
-                    event.preventDefault();
-                    closeImage();
-                }}
-            >
-                <div
-                    className="w-full max-w-3xl bg-popover text-popover-foreground rounded-xl border shadow-2xl p-4 space-y-3"
-                    role="dialog"
-                    aria-modal="true"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">{imageAttachment.title || t('attachments.title')}</div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={() => openExternal(imageAttachment.uri)}
-                                className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                {t('attachments.open')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={closeImage}
-                                className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                {t('common.close')}
-                            </button>
-                        </div>
-                    </div>
-                    <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-muted/30">
-                        <img src={imageSource} alt={imageAttachment.title} className="block max-w-full h-auto mx-auto" />
-                    </div>
-                </div>
-            </div>
-        )}
-        {textAttachment && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                <div className="w-full max-w-3xl rounded-lg border border-border bg-card p-4 shadow-xl">
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">{textAttachment.title || t('attachments.open')}</div>
-                        <button
-                            type="button"
-                            onClick={closeText}
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                        >
-                            {t('common.close')}
-                        </button>
-                    </div>
-                    <div className="mt-3">
-                        {textLoading ? (
-                            <div className="text-xs text-muted-foreground">{t('common.loading')}</div>
-                        ) : textError ? (
-                            <div className="flex items-center justify-between text-xs text-red-500">
-                                <span>{textError}</span>
-                                <button
-                                    type="button"
-                                    onClick={openTextExternally}
-                                    className="text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                    {t('attachments.open')}
-                                </button>
-                            </div>
-                        ) : (
-                            <pre className="max-h-[60vh] overflow-auto rounded border border-border bg-muted/30 p-3 text-xs text-foreground whitespace-pre-wrap">
-                                {textContent}
-                            </pre>
-                        )}
-                    </div>
-                </div>
-            </div>
-        )}
+        <ImageAttachmentModal
+            attachment={imageAttachment}
+            imageSource={imageSource}
+            onClose={closeImage}
+            onOpenExternally={() => {
+                if (imageAttachment) {
+                    void openExternal(imageAttachment.uri);
+                }
+            }}
+            t={t}
+        />
+        <TextAttachmentModal
+            attachment={textAttachment}
+            textContent={textContent}
+            textLoading={textLoading}
+            textError={textError}
+            onClose={closeText}
+            onOpenExternally={openTextExternally}
+            t={t}
+        />
         </>
     );
 });
