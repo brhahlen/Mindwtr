@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { useTaskStore, Attachment, Task, type Project, type Area, generateUUID, safeFormatDate, safeParseDate, parseQuickAdd, PRESET_CONTEXTS, validateAttachmentForUpload } from '@mindwtr/core';
 import { TaskInput } from '../Task/TaskInput';
-import { Plus, Folder, ListOrdered, ChevronRight, ChevronDown, Archive as ArchiveIcon, RotateCcw, Paperclip, Link2, Star, AlertTriangle, CornerDownRight } from 'lucide-react';
+import { Folder, ListOrdered, ChevronRight, ChevronDown, Archive as ArchiveIcon, RotateCcw, Paperclip, Link2 } from 'lucide-react';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { cn } from '../../lib/utils';
@@ -14,7 +14,8 @@ import { normalizeAttachmentInput } from '../../lib/attachment-utils';
 import { invoke } from '@tauri-apps/api/core';
 import { size } from '@tauri-apps/plugin-fs';
 import { AttachmentProgressIndicator } from '../AttachmentProgressIndicator';
-import { SortableAreaRow, SortableProjectRow, SortableProjectTaskRow } from './projects/SortableRows';
+import { SortableAreaRow, SortableProjectTaskRow } from './projects/SortableRows';
+import { ProjectsSidebar } from './projects/ProjectsSidebar';
 
 function toDateTimeLocalValue(dateStr: string | undefined): string {
     if (!dateStr) return '';
@@ -59,12 +60,6 @@ export function ProjectsView() {
     }, [areas]);
 
     const areaSensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: { distance: 4 },
-        }),
-    );
-
-    const projectSensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: { distance: 4 },
         }),
@@ -237,16 +232,6 @@ export function ProjectsView() {
             groupedDeferredProjects: groupByArea(deferred),
         };
     }, [projects, selectedArea, selectedTag, ALL_AREAS, NO_AREA, ALL_TAGS, NO_TAGS, areaById, sortedAreas]);
-
-    const handleProjectDragEnd = (areaId: string, areaProjects: Project[]) => (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const oldIndex = areaProjects.findIndex((project) => project.id === active.id);
-        const newIndex = areaProjects.findIndex((project) => project.id === over.id);
-        if (oldIndex === -1 || newIndex === -1) return;
-        const reordered = arrayMove(areaProjects, oldIndex, newIndex).map((project) => project.id);
-        reorderProjects(reordered, areaId === NO_AREA ? undefined : areaId);
-    };
 
     const handleCreateProject = (e: React.FormEvent) => {
         e.preventDefault();
@@ -425,305 +410,39 @@ export function ProjectsView() {
     return (
         <ErrorBoundary>
             <div className="flex h-full gap-6">
-            {/* Sidebar List of Projects */}
-            <div className="w-64 flex-shrink-0 flex flex-col gap-4 border-r border-border pr-6">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold tracking-tight">{t('projects.title')}</h2>
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="p-1 hover:bg-accent rounded-md transition-colors"
-                    >
-                        <Plus className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        {t('projects.areaFilter')}
-                    </label>
-                    <select
-                        value={selectedArea}
-                        onChange={(e) => setSelectedArea(e.target.value)}
-                        className="w-full text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                    >
-                        <option value={ALL_AREAS}>{t('projects.allAreas')}</option>
-                        {areaOptions.list.map((area) => (
-                            <option key={area.id} value={area.id}>
-                                {area.name}
-                            </option>
-                        ))}
-                        {areaOptions.hasNoArea && (
-                            <option value={NO_AREA}>{t('projects.noArea')}</option>
-                        )}
-                    </select>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        {t('projects.tagFilter')}
-                    </label>
-                    <select
-                        value={selectedTag}
-                        onChange={(e) => setSelectedTag(e.target.value)}
-                        className="w-full text-xs bg-muted/50 border border-border rounded px-2 py-1 text-foreground"
-                    >
-                        <option value={ALL_TAGS}>{t('projects.allTags')}</option>
-                        {tagOptions.list.map((tag) => (
-                            <option key={tag} value={tag}>
-                                {tag}
-                            </option>
-                        ))}
-                        {tagOptions.hasNoTags && (
-                            <option value={NO_TAGS}>{t('projects.noTags')}</option>
-                        )}
-                    </select>
-                </div>
-
-                {isCreating && (
-                    <form onSubmit={handleCreateProject} className="bg-card border border-border rounded-lg p-3 space-y-3 animate-in slide-in-from-top-2">
-                        <input
-                            autoFocus
-                            type="text"
-                            value={newProjectTitle}
-                            onChange={(e) => setNewProjectTitle(e.target.value)}
-                            placeholder={t('projects.projectName')}
-                            className="w-full bg-transparent border-b border-primary/50 p-1 text-sm focus:outline-none"
-                        />
-                        <div className="flex gap-2 justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setIsCreating(false)}
-                                className="text-xs px-2 py-1 hover:bg-muted rounded"
-                            >
-                                {t('common.cancel')}
-                            </button>
-                            <button
-                                type="submit"
-                                className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded"
-                            >
-                                {t('projects.create')}
-                            </button>
-                        </div>
-                    </form>
-                )}
-
-                <div className="space-y-3 overflow-y-auto flex-1">
-                    {groupedActiveProjects.length > 0 && (
-                        <div className="px-2 pt-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            {t('projects.activeSection')}
-                        </div>
-                    )}
-                    {groupedActiveProjects.map(([areaId, areaProjects]) => {
-                        const area = areaById.get(areaId);
-                        const areaLabel = area ? area.name : t('projects.noArea');
-                        const isCollapsed = collapsedAreas[areaId] ?? false;
-
-                        return (
-                            <div key={areaId} className="space-y-1">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleAreaCollapse(areaId)}
-                                    className="w-full flex items-center justify-between px-2 pt-2 text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        {area?.color && (
-                                            <span
-                                                className="w-2 h-2 rounded-full border border-border/50"
-                                                style={{ backgroundColor: area.color }}
-                                            />
-                                        )}
-                                        {area?.icon && <span className="text-[10px]">{area.icon}</span>}
-                                        {areaLabel}
-                                    </span>
-                                    {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                </button>
-                                {!isCollapsed && (
-                                    <DndContext
-                                        sensors={projectSensors}
-                                        collisionDetection={closestCenter}
-                                        onDragEnd={handleProjectDragEnd(areaId, areaProjects)}
-                                    >
-                                        <SortableContext items={areaProjects.map((project) => project.id)} strategy={verticalListSortingStrategy}>
-                                            {areaProjects.map((project) => {
-                                                const projTasks = tasksByProject[project.id] || [];
-                                                let nextAction = undefined;
-                                                let nextCandidate = undefined;
-                                                for (const t of projTasks) {
-                                                    if (!nextCandidate && t.status === 'next') {
-                                                        nextCandidate = t;
-                                                    }
-                                                    if (!nextAction && t.status === 'inbox') {
-                                                        nextAction = t;
-                                                    }
-                                                }
-                                                nextAction = nextAction || nextCandidate;
-                                                const focusedCount = projects.filter(p => p.isFocused).length;
-
-                                                return (
-                                                    <SortableProjectRow key={project.id} projectId={project.id}>
-                                                        {({ handle, isDragging }) => (
-                                                            <div
-                                                                className={cn(
-                                                                    "rounded-lg cursor-pointer transition-colors text-sm border",
-                                                                    selectedProjectId === project.id
-                                                                        ? "bg-accent text-accent-foreground border-accent"
-                                                                        : project.isFocused
-                                                                            ? "bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20"
-                                                                            : "border-transparent hover:bg-muted/50",
-                                                                    isDragging && "opacity-70"
-                                                                )}
-                                                            >
-                                                                <div
-                                                                    className="flex items-center gap-2 p-2"
-                                                                    onClick={() => setSelectedProjectId(project.id)}
-                                                                >
-                                                                    {handle}
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            toggleProjectFocus(project.id);
-                                                                        }}
-                                                                        className={cn(
-                                                                            "text-sm transition-colors",
-                                                                            project.isFocused ? "text-amber-500" : "text-muted-foreground hover:text-amber-500",
-                                                                            !project.isFocused && focusedCount >= 5 && "opacity-30 cursor-not-allowed"
-                                                                        )}
-                                                                        title={project.isFocused ? "Remove from focus" : focusedCount >= 5 ? "Max 5 focused projects" : "Add to focus"}
-                                                                        aria-label={project.isFocused ? "Remove from focus" : "Add to focus"}
-                                                                    >
-                                                                        <Star className="w-4 h-4" fill={project.isFocused ? 'currentColor' : 'none'} />
-                                                                    </button>
-                                                                    <Folder className="w-4 h-4" style={{ color: getProjectColor(project) }} />
-                                                                    <span className="flex-1 truncate">{project.title}</span>
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        {projTasks.length}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="px-2 pb-2 pl-8">
-                                                                    {nextAction ? (
-                                                                        <span className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                                                                            <CornerDownRight className="w-3 h-3" />
-                                                                            {nextAction.title}
-                                                                        </span>
-                                                                    ) : projTasks.length > 0 ? (
-                                                                        <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                                                            <AlertTriangle className="w-3 h-3" />
-                                                                            {t('projects.noNextAction')}
-                                                                        </span>
-                                                                    ) : null}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </SortableProjectRow>
-                                                );
-                                            })}
-                                        </SortableContext>
-                                    </DndContext>
-                                )}
-                            </div>
-                        );
-                    })}
-
-                    {groupedDeferredProjects.length > 0 && (
-                        <div className="pt-2 border-t border-border">
-                            <button
-                                type="button"
-                                onClick={() => setShowDeferredProjects((prev) => !prev)}
-                                className="w-full flex items-center justify-between px-2 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
-                            >
-                                <span>{t('projects.deferredSection')}</span>
-                                {showDeferredProjects ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            </button>
-                            {showDeferredProjects && (
-                                <div className="space-y-3">
-                                    {groupedDeferredProjects.map(([areaId, areaProjects]) => {
-                                        const area = areaById.get(areaId);
-                                        const areaLabel = area ? area.name : t('projects.noArea');
-                                        const isCollapsed = collapsedAreas[areaId] ?? false;
-
-                                        return (
-                                            <div key={`deferred-${areaId}`} className="space-y-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleAreaCollapse(areaId)}
-                                                    className="w-full flex items-center justify-between px-2 pt-2 text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
-                                                >
-                                                    <span className="flex items-center gap-2">
-                                                        {area?.color && (
-                                                            <span
-                                                                className="w-2 h-2 rounded-full border border-border/50"
-                                                                style={{ backgroundColor: area.color }}
-                                                            />
-                                                        )}
-                                                        {area?.icon && <span className="text-[10px]">{area.icon}</span>}
-                                                        {areaLabel}
-                                                    </span>
-                                                    {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                                </button>
-                                                {!isCollapsed && (
-                                                    <DndContext
-                                                        sensors={projectSensors}
-                                                        collisionDetection={closestCenter}
-                                                        onDragEnd={handleProjectDragEnd(areaId, areaProjects)}
-                                                    >
-                                                        <SortableContext items={areaProjects.map((project) => project.id)} strategy={verticalListSortingStrategy}>
-                                                            {areaProjects.map((project) => (
-                                                                <SortableProjectRow key={project.id} projectId={project.id}>
-                                                                    {({ handle, isDragging }) => (
-                                                                        <div
-                                                                            className={cn(
-                                                                                "rounded-lg cursor-pointer transition-colors text-sm border",
-                                                                                selectedProjectId === project.id
-                                                                                    ? "bg-accent text-accent-foreground border-accent"
-                                                                                    : "border-transparent hover:bg-muted/50",
-                                                                                isDragging && "opacity-70"
-                                                                            )}
-                                                                            onClick={() => setSelectedProjectId(project.id)}
-                                                                        >
-                                                                            <div className="flex items-center gap-2 p-2">
-                                                                                {handle}
-                                                                                <Folder className="w-4 h-4" style={{ color: getProjectColor(project) }} />
-                                                                                <span className="flex-1 truncate">{project.title}</span>
-                                                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase">
-                                                                                    {t(`status.${project.status}`) || project.status}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </SortableProjectRow>
-                                                            ))}
-                                                        </SortableContext>
-                                                    </DndContext>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {groupedActiveProjects.length === 0 && groupedDeferredProjects.length === 0 && !isCreating && (
-                        <div className="text-sm text-muted-foreground text-center py-8 space-y-3">
-                            <p className="text-base font-medium text-foreground">{t('projects.noProjects')}</p>
-                            <p>
-                                {(() => {
-                                    const hint = t('projects.emptyHint');
-                                    return hint === 'projects.emptyHint'
-                                        ? 'Create your first project to start organizing work.'
-                                        : hint;
-                                })()}
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => setIsCreating(true)}
-                                className="text-xs px-3 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                            >
-                                {t('projects.create')}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <ProjectsSidebar
+                t={t}
+                selectedArea={selectedArea}
+                selectedTag={selectedTag}
+                allAreasId={ALL_AREAS}
+                noAreaId={NO_AREA}
+                allTagsId={ALL_TAGS}
+                noTagsId={NO_TAGS}
+                areaOptions={areaOptions}
+                tagOptions={tagOptions}
+                isCreating={isCreating}
+                newProjectTitle={newProjectTitle}
+                onStartCreate={() => setIsCreating(true)}
+                onCancelCreate={() => setIsCreating(false)}
+                onCreateProject={handleCreateProject}
+                onChangeNewProjectTitle={setNewProjectTitle}
+                onSelectArea={setSelectedArea}
+                onSelectTag={setSelectedTag}
+                groupedActiveProjects={groupedActiveProjects}
+                groupedDeferredProjects={groupedDeferredProjects}
+                areaById={areaById}
+                collapsedAreas={collapsedAreas}
+                onToggleAreaCollapse={toggleAreaCollapse}
+                showDeferredProjects={showDeferredProjects}
+                onToggleDeferredProjects={() => setShowDeferredProjects((prev) => !prev)}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={setSelectedProjectId}
+                getProjectColor={getProjectColor}
+                tasksByProject={tasksByProject}
+                projects={projects}
+                toggleProjectFocus={toggleProjectFocus}
+                reorderProjects={reorderProjects}
+            />
 
             {/* Project Details & Tasks */}
             <div className="flex-1 flex flex-col h-full overflow-hidden">
