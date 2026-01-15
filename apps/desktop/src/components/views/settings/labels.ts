@@ -126,6 +126,7 @@ export const labelFallback = {
         syncDescription:
             'Configure a secondary folder to sync your data with (e.g., Dropbox, Syncthing). This merges your local data with the sync folder to prevent data loss.',
         syncBackend: 'Sync backend',
+        syncBackendOff: 'Off',
         syncBackendFile: 'File',
         syncBackendWebdav: 'WebDAV',
         syncBackendCloud: 'Self-Hosted',
@@ -324,6 +325,7 @@ export const labelFallback = {
         syncDescription:
             '配置一个辅助文件夹来同步您的数据（如 Dropbox、Syncthing）。这会将本地数据与同步文件夹合并，以防止数据丢失。',
         syncBackend: '同步后端',
+        syncBackendOff: '关闭',
         syncBackendFile: '文件',
         syncBackendWebdav: 'WebDAV',
         syncBackendCloud: '自托管',

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SyncService } from '../../../lib/sync-service';
 
-export type SyncBackend = 'file' | 'webdav' | 'cloud';
+export type SyncBackend = 'off' | 'file' | 'webdav' | 'cloud';
 
 type UseSyncSettingsOptions = {
     isTauri: boolean;
@@ -13,7 +13,7 @@ export const useSyncSettings = ({ isTauri, showSaved, selectSyncFolderTitle }: U
     const [syncPath, setSyncPath] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
-    const [syncBackend, setSyncBackend] = useState<SyncBackend>('file');
+    const [syncBackend, setSyncBackend] = useState<SyncBackend>('off');
     const [webdavUrl, setWebdavUrl] = useState('');
     const [webdavUsername, setWebdavUsername] = useState('');
     const [webdavPassword, setWebdavPassword] = useState('');
@@ -124,6 +124,9 @@ export const useSyncSettings = ({ isTauri, showSaved, selectSyncFolderTitle }: U
             setIsSyncing(true);
             setSyncError(null);
 
+            if (syncBackend === 'off') {
+                return;
+            }
             if (syncBackend === 'webdav') {
                 if (!webdavUrl.trim()) return;
                 await handleSaveWebDav();

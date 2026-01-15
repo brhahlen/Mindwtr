@@ -1780,7 +1780,7 @@ fn set_sync_path(app: tauri::AppHandle, sync_path: String) -> Result<serde_json:
 
 fn normalize_backend(value: &str) -> Option<&str> {
     match value {
-        "file" | "webdav" | "cloud" => Some(value),
+        "off" | "file" | "webdav" | "cloud" => Some(value),
         _ => None,
     }
 }
@@ -1788,8 +1788,8 @@ fn normalize_backend(value: &str) -> Option<&str> {
 #[tauri::command]
 fn get_sync_backend(app: tauri::AppHandle) -> Result<String, String> {
     let config = read_config(&app);
-    let raw = config.sync_backend.unwrap_or_else(|| "file".to_string());
-    Ok(normalize_backend(raw.trim()).unwrap_or("file").to_string())
+    let raw = config.sync_backend.unwrap_or_else(|| "off".to_string());
+    Ok(normalize_backend(raw.trim()).unwrap_or("off").to_string())
 }
 
 #[tauri::command]

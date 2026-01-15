@@ -17,6 +17,7 @@ type Labels = {
     sync: string;
     syncDescription: string;
     syncBackend: string;
+    syncBackendOff: string;
     syncBackendFile: string;
     syncBackendWebdav: string;
     syncBackendCloud: string;
@@ -52,7 +53,7 @@ type Labels = {
     attachmentsCleanupRunning: string;
 };
 
-type SyncBackend = 'file' | 'webdav' | 'cloud';
+type SyncBackend = 'off' | 'file' | 'webdav' | 'cloud';
 
 type SettingsSyncPageProps = {
     t: Labels;
@@ -165,7 +166,9 @@ export function SettingsSyncPage({
             ? !!syncPath.trim()
             : syncBackend === 'webdav'
                 ? !!webdavUrl.trim() && !webdavUrlError
-                : !!cloudUrl.trim() && !cloudUrlError;
+                : syncBackend === 'cloud'
+                    ? !!cloudUrl.trim() && !cloudUrlError
+                    : false;
     const maxClockSkewMs = Math.max(lastSyncStats?.tasks.maxClockSkewMs ?? 0, lastSyncStats?.projects.maxClockSkewMs ?? 0);
     const timestampAdjustments = (lastSyncStats?.tasks.timestampAdjustments ?? 0) + (lastSyncStats?.projects.timestampAdjustments ?? 0);
     const conflictIds = [
@@ -297,6 +300,17 @@ export function SettingsSyncPage({
                     <div className="flex items-center justify-between gap-4">
                         <span className="text-sm font-medium">{t.syncBackend}</span>
                         <div className="flex gap-2">
+                            <button
+                                onClick={() => onSetSyncBackend('off')}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors border",
+                                    syncBackend === 'off'
+                                        ? "bg-primary/10 text-primary border-primary ring-1 ring-primary"
+                                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground",
+                                )}
+                            >
+                                {t.syncBackendOff}
+                            </button>
                             <button
                                 onClick={() => onSetSyncBackend('file')}
                                 className={cn(

@@ -91,12 +91,17 @@ function App() {
 
         const canSync = async () => {
             const backend = await SyncService.getSyncBackend();
+            if (backend === 'off') return false;
             if (backend === 'file') {
                 const path = await SyncService.getSyncPath();
                 return Boolean(path);
             }
             if (backend === 'webdav') {
                 const { url } = await SyncService.getWebDavConfig();
+                return Boolean(url);
+            }
+            if (backend === 'cloud') {
+                const { url } = await SyncService.getCloudConfig();
                 return Boolean(url);
             }
             return false;

@@ -32,7 +32,7 @@ import { reportError } from './report-error';
 import { logInfo, logSyncError, sanitizeLogMessage } from './app-log';
 import { webStorage } from './storage-adapter-web';
 
-type SyncBackend = 'file' | 'webdav' | 'cloud';
+type SyncBackend = 'off' | 'file' | 'webdav' | 'cloud';
 
 const SYNC_BACKEND_KEY = 'mindwtr-sync-backend';
 const WEBDAV_URL_KEY = 'mindwtr-webdav-url';
@@ -397,7 +397,8 @@ type WebDavConfig = { url: string; username: string; password?: string; hasPassw
 type CloudConfig = { url: string; token: string };
 
 function normalizeSyncBackend(raw: string | null): SyncBackend {
-    return raw === 'webdav' || raw === 'cloud' ? raw : 'file';
+    if (raw === 'off' || raw === 'file' || raw === 'webdav' || raw === 'cloud') return raw;
+    return 'off';
 }
 
 async function getTauriFetch(): Promise<typeof fetch | undefined> {
@@ -974,7 +975,7 @@ export class SyncService {
             return normalizeSyncBackend(backend);
         } catch (error) {
             reportError('Failed to get sync backend', error);
-            return 'file';
+            return 'off';
         }
     }
 
@@ -1199,7 +1200,7 @@ export class SyncService {
         }
 
         let step = 'init';
-        let backend: SyncBackend = 'file';
+        let backend: SyncBackend = 'off';
         let syncUrl: string | undefined;
 
         const runSync = async (): Promise<{ success: boolean; stats?: MergeStats; error?: string }> => {
@@ -1209,6 +1210,9 @@ export class SyncService {
 
             // 2. Read/merge/write via shared core orchestration.
             backend = await SyncService.getSyncBackend();
+            if (backend === 'off') {
+                return { success: true };
+            }
             const syncResult = await performSyncCycle({
                 readLocal: async () => (
                     isTauriRuntime()
