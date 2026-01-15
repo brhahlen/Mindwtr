@@ -6,6 +6,7 @@ import './index.css';
 import { setStorageAdapter } from '@mindwtr/core';
 import { LanguageProvider } from './contexts/language-context';
 import { isTauriRuntime } from './lib/runtime';
+import { reportError } from './lib/report-error';
 import { webStorage } from './lib/storage-adapter-web';
 import { setupGlobalErrorLogging } from './lib/app-log';
 
@@ -73,4 +74,4 @@ async function bootstrap() {
     );
 }
 
-bootstrap().catch(console.error);
+bootstrap().catch((error) => reportError('Failed to start app', error));
