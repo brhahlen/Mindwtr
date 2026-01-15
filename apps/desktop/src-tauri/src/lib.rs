@@ -2302,7 +2302,10 @@ pub fn run() {
                 }
                 if diagnostics_enabled {
                     let _ = window.eval("window.__MINDWTR_DIAGNOSTICS__ = true;");
-                    let _ = window.open_devtools();
+                    #[cfg(any(debug_assertions, feature = "diagnostics"))]
+                    {
+                        let _ = window.open_devtools();
+                    }
                 }
             }
 
