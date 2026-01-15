@@ -126,6 +126,9 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
     const [pendingDueDate, setPendingDueDate] = useState<Date | null>(null);
     const [editTab, setEditTab] = useState<TaskEditTab>('task');
     const [showDescriptionPreview, setShowDescriptionPreview] = useState(false);
+    const [titleDraft, setTitleDraft] = useState('');
+    const titleDraftRef = useRef('');
+    const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [descriptionDraft, setDescriptionDraft] = useState('');
     const descriptionDraftRef = useRef('');
     const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,6 +241,13 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                 baseTaskRef.current = normalizedTask;
                 isDirtyRef.current = false;
                 setShowDescriptionPreview(false);
+                const nextTitle = String(normalizedTask.title ?? '');
+                if (titleDebounceRef.current) {
+                    clearTimeout(titleDebounceRef.current);
+                    titleDebounceRef.current = null;
+                }
+                titleDraftRef.current = nextTitle;
+                setTitleDraft(nextTitle);
                 const nextDescription = String(normalizedTask.description ?? '');
                 descriptionDraftRef.current = nextDescription;
                 setDescriptionDraft(nextDescription);
@@ -253,6 +263,12 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
             baseTaskRef.current = null;
             isDirtyRef.current = false;
             setShowDescriptionPreview(false);
+            if (titleDebounceRef.current) {
+                clearTimeout(titleDebounceRef.current);
+                titleDebounceRef.current = null;
+            }
+            titleDraftRef.current = '';
+            setTitleDraft('');
             descriptionDraftRef.current = '';
             setDescriptionDraft('');
             setEditTab(resolveInitialTab(defaultTab, null));
@@ -282,8 +298,8 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
             setCopilotSuggestion(null);
             return;
         }
-        const title = String(editedTask.title ?? '').trim();
-        const description = String(editedTask.description ?? '').trim();
+        const title = String(titleDraftRef.current ?? '').trim();
+        const description = String(descriptionDraftRef.current ?? '').trim();
         const input = [title, description].filter(Boolean).join('\n');
         if (input.length < 4) {
             setCopilotSuggestion(null);
@@ -325,7 +341,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                     copilotAbortRef.current = null;
                 }
             };
-    }, [aiEnabled, aiKey, editedTask.title, editedTask.description, settings, timeEstimatesEnabled]);
+    }, [aiEnabled, aiKey, titleDraft, descriptionDraft, settings, timeEstimatesEnabled]);
 
     useEffect(() => {
         if (!visible) {
@@ -343,13 +359,23 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
     }, [visible]);
 
     useEffect(() => {
-        if (!visible && descriptionDebounceRef.current) {
-            clearTimeout(descriptionDebounceRef.current);
-            descriptionDebounceRef.current = null;
+        if (!visible) {
+            if (titleDebounceRef.current) {
+                clearTimeout(titleDebounceRef.current);
+                titleDebounceRef.current = null;
+            }
+            if (descriptionDebounceRef.current) {
+                clearTimeout(descriptionDebounceRef.current);
+                descriptionDebounceRef.current = null;
+            }
         }
     }, [visible]);
 
     useEffect(() => () => {
+        if (titleDebounceRef.current) {
+            clearTimeout(titleDebounceRef.current);
+            titleDebounceRef.current = null;
+        }
         if (descriptionDebounceRef.current) {
             clearTimeout(descriptionDebounceRef.current);
             descriptionDebounceRef.current = null;
@@ -363,6 +389,26 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         setCopilotEstimate(undefined);
         setCopilotTags([]);
     };
+    const setTitleImmediate = useCallback((text: string) => {
+        if (titleDebounceRef.current) {
+            clearTimeout(titleDebounceRef.current);
+            titleDebounceRef.current = null;
+        }
+        titleDraftRef.current = text;
+        setTitleDraft(text);
+        setEditedTask((prev) => ({ ...prev, title: text }));
+    }, [setEditedTask]);
+    const handleTitleDraftChange = useCallback((text: string) => {
+        titleDraftRef.current = text;
+        setTitleDraft(text);
+        resetCopilotDraft();
+        if (titleDebounceRef.current) {
+            clearTimeout(titleDebounceRef.current);
+        }
+        titleDebounceRef.current = setTimeout(() => {
+            setEditedTask((prev) => ({ ...prev, title: text }));
+        }, 250);
+    }, [resetCopilotDraft, setEditedTask]);
 
     const applyCopilotSuggestion = () => {
         if (!copilotSuggestion) return;
@@ -402,11 +448,19 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const handleSave = () => {
         if (!task) return;
+        if (titleDebounceRef.current) {
+            clearTimeout(titleDebounceRef.current);
+            titleDebounceRef.current = null;
+        }
         if (descriptionDebounceRef.current) {
             clearTimeout(descriptionDebounceRef.current);
             descriptionDebounceRef.current = null;
         }
-        const updates: Partial<Task> = { ...editedTask, description: descriptionDraftRef.current };
+        const updates: Partial<Task> = {
+            ...editedTask,
+            title: String(titleDraftRef.current ?? ''),
+            description: descriptionDraftRef.current,
+        };
         const recurrenceRule = getRecurrenceRuleValue(editedTask.recurrence);
         const recurrenceStrategy = getRecurrenceStrategyValue(editedTask.recurrence);
         if (recurrenceRule) {
@@ -450,7 +504,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
     const handleShare = async () => {
         if (!task) return;
 
-        const title = String(editedTask.title ?? task.title ?? '').trim();
+        const title = String(titleDraftRef.current ?? editedTask.title ?? task.title ?? '').trim();
         const lines: string[] = [];
 
         if (title) lines.push(title);
@@ -1187,6 +1241,9 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
     };
 
     const applyAISuggestion = (suggested: { title?: string; context?: string; timeEstimate?: TimeEstimate }) => {
+        if (suggested.title) {
+            setTitleImmediate(suggested.title);
+        }
         setEditedTask((prev) => {
             const nextContexts = suggested.context
                 ? Array.from(new Set([...(prev.contexts ?? []), suggested.context]))
@@ -1202,7 +1259,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const handleAIClarify = async () => {
         if (!task || isAIWorking) return;
-        const title = String(editedTask.title ?? task.title ?? '').trim();
+        const title = String(titleDraftRef.current ?? editedTask.title ?? task.title ?? '').trim();
         if (!title) return;
         setIsAIWorking(true);
         try {
@@ -1221,7 +1278,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
             const actions: AIResponseAction[] = response.options.slice(0, 3).map((option) => ({
                 label: option.label,
                 onPress: () => {
-                    setEditedTask((prev) => ({ ...prev, title: option.action }));
+                    setTitleImmediate(option.action);
                     closeAIModal();
                 },
             }));
@@ -1254,7 +1311,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const handleAIBreakdown = async () => {
         if (!task || isAIWorking) return;
-        const title = String(editedTask.title ?? task.title ?? '').trim();
+        const title = String(titleDraftRef.current ?? editedTask.title ?? task.title ?? '').trim();
         if (!title) return;
         setIsAIWorking(true);
         try {
@@ -1301,7 +1358,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
 
     const inputStyle = { backgroundColor: tc.inputBg, borderColor: tc.border, color: tc.text };
     const textDirectionValue = (editedTask.textDirection ?? 'auto') as Task['textDirection'] | 'auto';
-    const combinedText = `${editedTask.title ?? ''}\n${descriptionDraft ?? ''}`.trim();
+    const combinedText = `${titleDraft ?? ''}\n${descriptionDraft ?? ''}`.trim();
     const resolvedDirection = resolveTextDirection(combinedText, textDirectionValue);
     const textDirectionStyle = {
         writingDirection: resolvedDirection,
@@ -1973,7 +2030,7 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
         >
             <SafeAreaView style={[styles.container, { backgroundColor: tc.bg }]} edges={['top']}>
                 <TaskEditHeader
-                    title={String(editedTask.title || '').trim() || t('taskEdit.title')}
+                    title={String(titleDraft || editedTask.title || '').trim() || t('taskEdit.title')}
                     onDone={handleDone}
                     onShare={handleShare}
                     onDuplicate={handleDuplicateTask}
@@ -2037,7 +2094,6 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                             inputStyle={inputStyle}
                             editedTask={editedTask}
                             setEditedTask={setEditedTask}
-                            resetCopilotDraft={resetCopilotDraft}
                             aiEnabled={aiEnabled}
                             isAIWorking={isAIWorking}
                             handleAIClarify={handleAIClarify}
@@ -2062,6 +2118,8 @@ export function TaskEditModal({ visible, task, onClose, onSave, onFocusMode, def
                             onCloseDatePicker={() => setShowDatePicker(null)}
                             containerWidth={containerWidth}
                             textDirectionStyle={textDirectionStyle}
+                            titleDraft={titleDraft}
+                            onTitleDraftChange={handleTitleDraftChange}
                         />
                         <View style={[styles.tabPage, { width: containerWidth || '100%' }]}>
                             <TaskEditViewTab

@@ -14,7 +14,6 @@ type TaskEditFormTabProps = {
     inputStyle: Record<string, any>;
     editedTask: Partial<Task>;
     setEditedTask: React.Dispatch<React.SetStateAction<Partial<Task>>>;
-    resetCopilotDraft: () => void;
     aiEnabled: boolean;
     isAIWorking: boolean;
     handleAIClarify: () => void;
@@ -39,6 +38,8 @@ type TaskEditFormTabProps = {
     onCloseDatePicker: () => void;
     containerWidth: number;
     textDirectionStyle: Record<string, any>;
+    titleDraft: string;
+    onTitleDraftChange: (text: string) => void;
 };
 
 export function TaskEditFormTab({
@@ -48,7 +49,6 @@ export function TaskEditFormTab({
     inputStyle,
     editedTask,
     setEditedTask,
-    resetCopilotDraft,
     aiEnabled,
     isAIWorking,
     handleAIClarify,
@@ -73,6 +73,8 @@ export function TaskEditFormTab({
     onCloseDatePicker,
     containerWidth,
     textDirectionStyle,
+    titleDraft,
+    onTitleDraftChange,
 }: TaskEditFormTabProps) {
     const countFilledFields = (fieldIds: TaskEditorFieldId[]): number => {
         return fieldIds.filter((fieldId) => {
@@ -122,11 +124,8 @@ export function TaskEditFormTab({
                         <Text style={[styles.label, { color: tc.secondaryText }]}>{t('taskEdit.titleLabel')}</Text>
                         <TextInput
                             style={[styles.input, inputStyle, textDirectionStyle]}
-                            value={editedTask.title}
-                            onChangeText={(text) => {
-                                setEditedTask((prev) => ({ ...prev, title: text }));
-                                resetCopilotDraft();
-                            }}
+                            value={titleDraft}
+                            onChangeText={(text) => onTitleDraftChange(text)}
                             placeholderTextColor={tc.secondaryText}
                         />
                     </View>
