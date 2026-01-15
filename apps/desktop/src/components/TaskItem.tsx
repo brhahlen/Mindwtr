@@ -204,9 +204,9 @@ export const TaskItem = memo(function TaskItem({
     const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
 
     const [projectContext, setProjectContext] = useState<{ projectTitle: string; projectTasks: string[] } | null>(null);
-    const [tagOptions, setTagOptions] = useState<string[]>(PRESET_TAGS);
-    const [popularTagOptions, setPopularTagOptions] = useState<string[]>(PRESET_TAGS.slice(0, 8));
-    const [allContexts, setAllContexts] = useState<string[]>([...PRESET_CONTEXTS].sort());
+    const [tagOptions, setTagOptions] = useState<string[]>(Array.from(PRESET_TAGS));
+    const [popularTagOptions, setPopularTagOptions] = useState<string[]>(Array.from(PRESET_TAGS).slice(0, 8));
+    const [allContexts, setAllContexts] = useState<string[]>(Array.from(PRESET_CONTEXTS).sort());
 
     useEffect(() => {
         if (!isEditing) return;
