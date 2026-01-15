@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { ErrorBoundary } from '../ErrorBoundary';
 import {
     Bell,
@@ -23,14 +23,7 @@ import { SyncService } from '../../lib/sync-service';
 import { reportError } from '../../lib/report-error';
 import { clearLog, getLogPath, logDiagnosticsEnabled } from '../../lib/app-log';
 import { checkForUpdates, type UpdateInfo, GITHUB_RELEASES_URL, verifyDownloadChecksum } from '../../lib/update-service';
-import { SettingsMainPage } from './settings/SettingsMainPage';
-import { SettingsGtdPage } from './settings/SettingsGtdPage';
-import { SettingsAiPage } from './settings/SettingsAiPage';
-import { SettingsNotificationsPage } from './settings/SettingsNotificationsPage';
-import { SettingsCalendarPage } from './settings/SettingsCalendarPage';
-import { SettingsSyncPage } from './settings/SettingsSyncPage';
 import { labelFallback, labelKeyOverrides, type SettingsLabels } from './settings/labels';
-import { SettingsAboutPage } from './settings/SettingsAboutPage';
 import { SettingsUpdateModal } from './settings/SettingsUpdateModal';
 import { SettingsSidebar } from './settings/SettingsSidebar';
 import { useAiSettings } from './settings/useAiSettings';
@@ -40,6 +33,14 @@ import { useSyncSettings } from './settings/useSyncSettings';
 type ThemeMode = 'system' | 'light' | 'dark' | 'eink' | 'nord' | 'sepia';
 type SettingsPage = 'main' | 'gtd' | 'notifications' | 'sync' | 'calendar' | 'ai' | 'about';
 type LinuxDistroInfo = { id?: string; id_like?: string[] };
+
+const SettingsMainPage = lazy(() => import('./settings/SettingsMainPage').then((m) => ({ default: m.SettingsMainPage })));
+const SettingsGtdPage = lazy(() => import('./settings/SettingsGtdPage').then((m) => ({ default: m.SettingsGtdPage })));
+const SettingsAiPage = lazy(() => import('./settings/SettingsAiPage').then((m) => ({ default: m.SettingsAiPage })));
+const SettingsNotificationsPage = lazy(() => import('./settings/SettingsNotificationsPage').then((m) => ({ default: m.SettingsNotificationsPage })));
+const SettingsCalendarPage = lazy(() => import('./settings/SettingsCalendarPage').then((m) => ({ default: m.SettingsCalendarPage })));
+const SettingsSyncPage = lazy(() => import('./settings/SettingsSyncPage').then((m) => ({ default: m.SettingsSyncPage })));
+const SettingsAboutPage = lazy(() => import('./settings/SettingsAboutPage').then((m) => ({ default: m.SettingsAboutPage })));
 
 const THEME_STORAGE_KEY = 'mindwtr-theme';
 
@@ -779,7 +780,15 @@ export function SettingsView() {
                                     <h2 className="text-xl font-semibold tracking-tight">{pageTitle}</h2>
                                 </div>
                             </header>
-                            {renderPage()}
+                            <Suspense
+                                fallback={(
+                                    <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                                        {translate('common.loading')}
+                                    </div>
+                                )}
+                            >
+                                {renderPage()}
+                            </Suspense>
                         </div>
                     </main>
                 </div>
