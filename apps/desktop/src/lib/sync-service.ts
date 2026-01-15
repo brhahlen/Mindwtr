@@ -1231,7 +1231,7 @@ export class SyncService {
                 await useTaskStore.getState().updateSettings({
                     lastSyncAt: now,
                     lastSyncStatus: syncStatus,
-                    lastSyncError: syncStatus === 'error' ? useTaskStore.getState().settings?.lastSyncError : undefined,
+                    lastSyncError: undefined,
                 });
             } catch (error) {
                 console.warn('Failed to persist sync status', error);
