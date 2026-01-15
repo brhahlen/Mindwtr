@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import { useTaskStore, Task, Project, searchAll, generateUUID, SavedSearch, getStorageAdapter } from '@mindwtr/core';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useLanguage } from '../contexts/language-context';
@@ -13,6 +13,8 @@ export default function SearchScreen() {
     const router = useRouter();
   const [query, setQuery] = useState('');
   const [ftsResults, setFtsResults] = useState<{ tasks: Task[]; projects: Project[] } | null>(null);
+  const [ftsLoading, setFtsLoading] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [saveName, setSaveName] = useState('');
     const inputRef = useRef<TextInput>(null);
@@ -25,30 +27,41 @@ export default function SearchScreen() {
     const placeholderColor = tc.secondaryText;
 
   const trimmedQuery = query.trim();
-  const shouldUseFts = trimmedQuery.length > 0 && !/\b\w+:/i.test(trimmedQuery);
+  const shouldUseFts = debouncedQuery.length > 0 && !/\b\w+:/i.test(debouncedQuery);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(trimmedQuery), 200);
+    return () => clearTimeout(handle);
+  }, [trimmedQuery]);
 
   useEffect(() => {
     let cancelled = false;
     if (!shouldUseFts) {
       setFtsResults(null);
+      setFtsLoading(false);
       return;
     }
     const adapter = getStorageAdapter();
     if (!adapter.searchAll) {
       setFtsResults(null);
+      setFtsLoading(false);
       return;
     }
-    adapter.searchAll(trimmedQuery)
+    setFtsLoading(true);
+    adapter.searchAll(debouncedQuery)
       .then((results) => {
         if (!cancelled) setFtsResults(results);
       })
       .catch(() => {
         if (!cancelled) setFtsResults(null);
+      })
+      .finally(() => {
+        if (!cancelled) setFtsLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [trimmedQuery, shouldUseFts]);
+  }, [debouncedQuery, shouldUseFts]);
 
   const fallbackResults = trimmedQuery === ''
     ? { tasks: [] as Task[], projects: [] as Project[] }
@@ -153,6 +166,14 @@ export default function SearchScreen() {
                         .replace('{total}', String(totalResults))}
                 </Text>
             )}
+            {ftsLoading && trimmedQuery !== '' && (
+                <View style={styles.loadingRow}>
+                    <ActivityIndicator size="small" color={tc.tint} />
+                    <Text style={[styles.loadingText, { color: tc.secondaryText }]}>
+                        {t('search.searching')}
+                    </Text>
+                </View>
+            )}
 
             <FlatList
                 data={results}
@@ -160,7 +181,7 @@ export default function SearchScreen() {
                 contentContainerStyle={styles.listContent}
                 keyboardShouldPersistTaps="handled"
                 ListEmptyComponent={
-                    trimmedQuery !== '' ? (
+                    trimmedQuery !== '' && !ftsLoading ? (
                         <View style={styles.emptyContainer}>
                             <Text style={[styles.emptyText, { color: tc.secondaryText }]}>
                                 {t('search.noResults')} {'"'}{trimmedQuery}{'"'}
@@ -247,6 +268,16 @@ const styles = StyleSheet.create({
         fontSize: 12,
         paddingHorizontal: 16,
         paddingTop: 8,
+    },
+    loadingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    loadingText: {
+        fontSize: 12,
     },
     searchIcon: {
         marginRight: 4,
